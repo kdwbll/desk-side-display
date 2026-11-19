@@ -8,6 +8,7 @@ const phonePages = (() => {
   const heading = document.getElementById('dashboard-name');
   const device = document.getElementById('dashboard-device');
   const empty = document.getElementById('dashboard-empty');
+  const footer = document.getElementById('page-footer');
   const indicator = document.getElementById('page-indicator');
   const follow = document.getElementById('follow-pc');
   const feedback = document.getElementById('shortcut-feedback');
@@ -19,6 +20,9 @@ const phonePages = (() => {
   let pcRevision;
   let manual;
   let visible;
+  let shownPageId;
+  let synchronized = false;
+  let footerTimer;
   let state;
   let mounted;
   let tiles = [];
@@ -32,10 +36,20 @@ const phonePages = (() => {
 
   function show(mode, nextState) {
     state = nextState;
+    const firstSync = !synchronized && !!state;
+    if (firstSync) synchronized = true;
     const command = state?.displayRevision;
     if (pcRevision !== undefined && command !== undefined && command !== pcRevision) manual = undefined;
     if (command !== undefined) pcRevision = command;
     const page = pages.find(item => item.id === manual) ?? pages.find(item => item.id === mode) ?? pages[0];
+    if (page.id !== shownPageId) {
+      if (shownPageId !== undefined && (!firstSync || manual)) {
+        footer.hidden = false;
+        clearTimeout(footerTimer);
+        footerTimer = setTimeout(() => { footer.hidden = true; }, 2000);
+      }
+      shownPageId = page.id;
+    }
     if (page !== visible) {
       visible = page;
       mount(page);
