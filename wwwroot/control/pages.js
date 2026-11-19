@@ -25,6 +25,12 @@
     }
   };
   const sizes = [['small', '小'], ['medium', '中'], ['large', '大']];
+  const screenshotKeys = [
+    ['Win+Shift+S', '区域截图 · Win+Shift+S'],
+    ['PrintScreen', '截屏键 · PrintScreen'],
+    ['Alt+PrintScreen', '截取当前窗口 · Alt+PrintScreen'],
+    ['Win+PrintScreen', '保存全屏截图 · Win+PrintScreen']
+  ];
   let draft;
   let original;
   let selected;
@@ -131,7 +137,7 @@
       page.widgets.push(widget);
       render();
       detail.querySelector('.page-widget-editor:last-child').open = true;
-      if (key === 'shortcut') status.textContent = '请填写要发送的快捷键，例如 Ctrl+Shift+K。';
+      if (key === 'shortcut') status.textContent = '可以选择截图预设，或用文字填写组合，例如 Ctrl+Shift+K。';
     });
     add.disabled = type.disabled = page.widgets.length >= 8;
     toolbar.append(type, add, node('span', 'detail', page.widgets.length + ' / 8'));
@@ -159,9 +165,22 @@
     if (widget.type === 'metric') field(fields, '读数', widget.metric, value => { widget.metric = value; }, {
       entries: Object.entries(metrics).map(([id, info]) => [id, info[0]])
     });
-    if (widget.type === 'shortcut') field(fields, '快捷键', widget.keys, value => {
-      widget.keys = value;
-    }, { max: 64, placeholder: 'Ctrl+Shift+K' });
+    if (widget.type === 'shortcut') {
+      const preset = field(fields, '截图快捷键预设', '', value => {
+        if (value) {
+          shortcut.value = value;
+          widget.keys = value;
+        }
+      }, { entries: [['', '请选择'], ...screenshotKeys] });
+      const shortcut = field(fields, '快捷键', widget.keys, value => {
+        widget.keys = value;
+        updatePreset();
+      }, { max: 64, placeholder: '例如 Win+Shift+S' });
+      function updatePreset() {
+        preset.value = screenshotKeys.find(([keys]) => keys.toLowerCase() === widget.keys.trim().toLowerCase())?.[0] ?? '';
+      }
+      updatePreset();
+    }
     if (widget.type === 'custom') {
       field(fields, '主文字模板', widget.manifest.template, value => { widget.manifest.template = value; }, { max: 120 });
       field(fields, '补充文字', widget.manifest.detail ?? '', value => {
