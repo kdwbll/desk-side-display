@@ -4,6 +4,10 @@
 
 [使用说明](使用说明.md) · [参与贡献](CONTRIBUTING.md) · [MIT 许可证](LICENSE)
 
+![通过 USB 连接的安卓手机横放在显示器下方的支架上，屏幕显示项目的逐字歌词演示](docs/screenshots/desk-setup.jpg)
+
+桌面布置实拍，手机屏幕替换为项目的演示画面。
+
 ## 手机截图
 
 ![安卓手机的横屏歌词模式，左侧为封面、歌名和歌手，右侧有五行歌词，当前句高亮到「我」字](docs/screenshots/android-lyrics.webp)

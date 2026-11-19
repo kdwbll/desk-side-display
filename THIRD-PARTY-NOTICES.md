@@ -14,3 +14,7 @@
 - BetterLyrics 用于参考 Windows 媒体会话与歌词匹配的设计。上游许可证为 GPL-3.0。 [BetterLyrics 许可证](https://github.com/jayfunc/BetterLyrics/blob/dev/LICENSE)
 
 本仓库对上述设计思路采用独立实现。项目的 MIT 许可适用于本仓库的原创代码与演示素材。第三方代码、工具、商标、歌曲、歌词及专辑封面的权利归各自权利人。运行时获取歌词涉及 [LRCLIB](https://lrclib.net/docs)、[AMLL](https://amll.dev/reference/http-api/native)和网易云音乐，使用歌词内容时应遵守相应来源的条款并尊重原权利。
+
+## 文档配图
+
+[桌面布置图](docs/screenshots/desk-setup.jpg)根据 kdwbll 提供的实拍照片制作，手机屏幕叠加项目的原创演示画面。原照片相关权利由拍摄者保留，配图经授权在项目文档中展示。
