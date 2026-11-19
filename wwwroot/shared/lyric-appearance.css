@@ -1,0 +1,21 @@
+.lyric-view {
+  --foreground: #f8f1e8;
+  --lyric-background: #171923;
+  --context-opacity: .29;
+  --context-blur: .8px;
+  color: var(--foreground);
+  background-color: var(--lyric-background);
+  background-image: radial-gradient(ellipse at 10% 0%, color-mix(in srgb, var(--lyric-background), #a489bf 20%), transparent 76%);
+}
+.lyric-view .adjacent {
+  color: var(--foreground);
+  opacity: var(--context-opacity);
+  filter: blur(var(--context-blur));
+}
+.lyric-view .adjacent.distant { filter: blur(calc(1.35 * var(--context-blur))); }
+.lyric-view .timed-word {
+  color: color-mix(in srgb, var(--foreground) 45%, transparent);
+  background: linear-gradient(90deg, var(--foreground) var(--fill, 0%), currentColor var(--fill, 0%));
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}

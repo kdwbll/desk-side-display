@@ -1,0 +1,84 @@
+:root {
+  color-scheme: light dark;
+  --canvas: light-dark(#edf0ef, #171b1d);
+  --surface: light-dark(#fafbf9, #23292b);
+  --text: light-dark(#202c30, #ebf0ee);
+  --quiet: light-dark(#546469, #aab9bb);
+  --line: light-dark(#cdd8d5, #424e50);
+  --selected: light-dark(#155d54, #9ce0ce);
+  --selected-text: light-dark(#fff, #15332d);
+  background: var(--canvas);
+  color: var(--text);
+  font: 400 15px/1.55 "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { width: min(680px, 100%); margin: auto; padding: clamp(18px, 5vw, 42px); }
+header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px 16px; flex-wrap: wrap; margin-bottom: 18px; }
+h1, h2, p { margin: 0; }
+h1 { font-size: 28px; letter-spacing: -.03em; }
+h2 { font-size: 16px; margin-bottom: 10px; }
+section { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 17px; margin-bottom: 12px; }
+.modes, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.appearance-editor { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; }
+.lyric-preview {
+  min-height: 166px;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 9px;
+  text-align: center;
+}
+.lyric-preview .adjacent { font-size: 13px; }
+.preview-current { font-size: clamp(17px, 4vw, 22px); font-weight: 650; }
+.preview-current .timed-word { --fill: 32%; }
+.appearance-fields, .appearance-presets { margin: 0; border: 0; padding: 0; min-width: 0; }
+.appearance-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: center;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 4px;
+}
+.appearance-fields label:has(output), .appearance-fields input[type=range] { grid-column: 1 / -1; }
+.appearance-fields label:has(output) { display: flex; gap: 6px; justify-content: space-between; }
+.appearance-fields output, #lyric-preset-count { color: var(--quiet); font-variant-numeric: tabular-nums; }
+.appearance-fields input[type=range] { width: 100%; accent-color: var(--selected); margin: 1px 0 4px; }
+.appearance-fields input[type=color] { width: 48px; height: 32px; padding: 2px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+.appearance-presets { margin-top: 16px; }
+.appearance-presets legend { font-weight: 600; padding: 0 0 6px; }
+#lyric-preset-count { margin-left: 5px; font-size: 13px; font-weight: 400; }
+.appearance-presets .actions + .actions { margin-top: 8px; }
+.appearance-presets input, .appearance-presets select { flex: 1 1 155px; min-width: 0; max-width: 100%; }
+#appearance-status { margin: 8px 0 0; }
+#appearance-status:empty { display: none; }
+.modes { margin-bottom: 12px; }
+.timing { margin-top: 10px; }
+#offset { color: var(--quiet); font-size: 13px; font-variant-numeric: tabular-nums; padding-inline: 3px; }
+button, select, .file-picker, input[type=text] {
+  min-height: 38px;
+  padding: 6px 11px;
+  font: inherit;
+  color: inherit;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+}
+button:not(:disabled), select:not(:disabled), .file-picker:not(:has(input:disabled)) { cursor: pointer; }
+button[aria-pressed="true"] { background: var(--selected); color: var(--selected-text); border-color: transparent; }
+button:disabled, select:disabled, .file-picker:has(input:disabled) { opacity: .53; }
+:focus-visible, .file-picker:focus-within { outline: 2px solid var(--selected); outline-offset: 2px; }
+.file-picker { position: relative; display: inline-flex; align-items: center; }
+.file-picker input { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: inherit; }
+.file-picker:has(input:disabled) { pointer-events: none; }
+#usb, .detail, footer { color: var(--quiet); font-size: 13px; }
+.song { font-weight: 600; overflow-wrap: anywhere; }
+.detail { min-height: 1.5em; margin: 2px 0 10px; }
+#message { font-size: 14px; margin-block: 10px; }
+#message:empty { display: none; }
+footer code { color: var(--text); }
+@media (max-width: 510px) {
+  .appearance-editor { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+}

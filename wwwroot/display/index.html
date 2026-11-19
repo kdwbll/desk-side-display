@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#171923">
+  <title>桌面副屏</title>
+  <link rel="stylesheet" href="/display/display.css">
+  <link rel="stylesheet" href="/shared/lyric-appearance.css">
+  <script src="/shared/lyric-appearance.js" defer></script>
+  <script src="/display/display.js" defer></script>
+</head>
+<body>
+  <main aria-label="安卓桌面副屏">
+    <section class="screen music lyric-view" id="lyrics" aria-label="正在播放" hidden>
+      <div class="now-playing">
+        <div class="cover artwork" aria-hidden="true">
+          <img id="cover" alt="" hidden>
+        </div>
+        <div class="track-details">
+          <div id="track"></div>
+          <div id="artist"></div>
+        </div>
+      </div>
+      <div class="lyric-stack">
+        <p class="adjacent past distant" data-offset="-2"></p>
+        <p class="adjacent past" data-offset="-1"></p>
+        <p class="current" id="current"></p>
+        <p class="adjacent" data-offset="1"></p>
+        <p class="adjacent distant" data-offset="2"></p>
+      </div>
+    </section>
+    <section class="screen clock" id="clock" aria-label="时钟">
+      <time id="time"></time>
+      <div id="date"></div>
+    </section>
+    <section class="screen photo artwork" id="photo" aria-label="相框" hidden>
+      <img id="wallpaper" alt="自选图片" hidden>
+    </section>
+  </main>
+</body>
+</html>
