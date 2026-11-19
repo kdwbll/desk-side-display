@@ -7,11 +7,16 @@
   <title>桌面副屏</title>
   <link rel="stylesheet" href="/display/display.css">
   <link rel="stylesheet" href="/shared/lyric-appearance.css">
+  <link rel="stylesheet" href="/shared/widgets.css">
+  <link rel="stylesheet" href="/display/pages.css">
   <script src="/shared/lyric-appearance.js" defer></script>
+  <script src="/shared/widgets.js" defer></script>
+  <script src="/display/pages.js" defer></script>
   <script src="/display/display.js" defer></script>
 </head>
 <body>
   <main aria-label="安卓桌面副屏">
+    <div id="page-content">
     <section class="screen music lyric-view" id="lyrics" aria-label="正在播放" hidden>
       <div class="now-playing">
         <div class="cover artwork" aria-hidden="true">
@@ -37,6 +42,21 @@
     <section class="screen photo artwork" id="photo" aria-label="相框" hidden>
       <img id="wallpaper" alt="自选图片" hidden>
     </section>
+    <section class="screen dashboard" id="dashboard" aria-labelledby="dashboard-name" hidden>
+      <header>
+        <h1 id="dashboard-name"></h1>
+        <p id="dashboard-device"></p>
+      </header>
+      <div id="dashboard-widgets" class="widget-grid"></div>
+      <p id="dashboard-empty" hidden>可在 Windows 控制面板添加组件</p>
+    </section>
+    </div>
+    <div class="widget-grid" id="page-widgets" aria-label="页面组件" hidden></div>
+    <footer class="page-footer">
+      <div id="page-indicator" role="status"></div>
+      <button type="button" id="follow-pc" hidden>跟随电脑</button>
+    </footer>
+    <div id="shortcut-feedback" role="status" hidden></div>
   </main>
 </body>
 </html>

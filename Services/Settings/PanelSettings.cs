@@ -8,6 +8,7 @@ sealed class PanelSettings
     private readonly object gate = new();
     private PanelPreferences preferences = new("auto", "clock");
     private ImageBytes? wallpaper;
+    private long displayRevision;
     private readonly string preferenceFile;
     private readonly string wallpaperFile;
     public string DataPath { get; }
@@ -32,9 +33,9 @@ sealed class PanelSettings
             wallpaper = ImageBytes.Create(File.ReadAllBytes(wallpaperFile));
     }
 
-    public (PanelPreferences Preferences, ImageBytes? Wallpaper) Read()
+    public (PanelPreferences Preferences, ImageBytes? Wallpaper, long DisplayRevision) Read()
     {
-        lock (gate) return (preferences, wallpaper);
+        lock (gate) return (preferences, wallpaper, displayRevision);
     }
 
     public bool Update(PanelPreferences next)
@@ -44,6 +45,7 @@ sealed class PanelSettings
         {
             Save(preferenceFile, JsonSerializer.SerializeToUtf8Bytes(next));
             preferences = next;
+            displayRevision++;
         }
         return true;
     }

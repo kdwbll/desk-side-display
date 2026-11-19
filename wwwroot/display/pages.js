@@ -1,0 +1,195 @@
+'use strict';
+
+const phonePages = (() => {
+  const main = document.querySelector('main');
+  const dashboard = document.getElementById('dashboard');
+  const grid = document.getElementById('dashboard-widgets');
+  const strip = document.getElementById('page-widgets');
+  const heading = document.getElementById('dashboard-name');
+  const device = document.getElementById('dashboard-device');
+  const empty = document.getElementById('dashboard-empty');
+  const indicator = document.getElementById('page-indicator');
+  const follow = document.getElementById('follow-pc');
+  const feedback = document.getElementById('shortcut-feedback');
+  const builtIn = (id, name) => ({ id, kind: id, name, widgets: [], color: '#171923' });
+  let pages = [builtIn('lyrics', '歌词'), builtIn('photo', '相框'), builtIn('clock', '时钟'),
+    builtIn('hardware', '硬件监控')];
+  let capability;
+  let revision;
+  let pcRevision;
+  let manual;
+  let visible;
+  let state;
+  let mounted;
+  let tiles = [];
+  let hardware;
+  let needsMetrics = false;
+  let touch;
+  let suppressClick = false;
+  let feedbackTimer;
+  let direction = 0;
+  let motion;
+
+  function show(mode, nextState) {
+    state = nextState;
+    const command = state?.displayRevision;
+    if (pcRevision !== undefined && command !== undefined && command !== pcRevision) manual = undefined;
+    if (command !== undefined) pcRevision = command;
+    const page = pages.find(item => item.id === manual) ?? pages.find(item => item.id === mode) ?? pages[0];
+    if (page !== visible) {
+      visible = page;
+      mount(page);
+    }
+    if (follow.hidden === !!manual) follow.hidden = !manual;
+    return page.kind === 'hardware' || page.kind === 'custom' ? 'dashboard' : page.kind;
+  }
+
+  function mount(page) {
+    const expanded = page.kind === 'hardware' || page.kind === 'custom';
+    tiles = page.widgets.map(widget => deskWidgets.make(widget, capability ? press : null));
+    (expanded ? grid : strip).replaceChildren(...tiles.map(tile => tile.element));
+    (expanded ? strip : grid).replaceChildren();
+    grid.scrollTop = strip.scrollTop = 0;
+    strip.hidden = expanded || tiles.length === 0;
+    empty.hidden = tiles.length !== 0;
+    heading.textContent = page.name;
+    dashboard.style.setProperty('--dashboard-background', page.color);
+    document.getElementById('clock').style.backgroundColor = page.color;
+    indicator.setAttribute('aria-label', page.name + '，第 ' + (pages.indexOf(page) + 1) + ' 页，共 ' + pages.length + ' 页');
+    indicator.replaceChildren(...pages.map(item => {
+      const dot = deskWidgets.node('span', 'page-dot' + (item === page ? ' active' : ''));
+      dot.setAttribute('aria-hidden', 'true');
+      return dot;
+    }));
+    needsMetrics = page.kind === 'hardware' || page.widgets.some(widget =>
+      widget.type === 'metric' || (widget.type === 'custom' && (widget.manifest.gauge ||
+        /\{\{(?:cpu|gpu|ram)\./.test(widget.manifest.template + ' ' + (widget.manifest.detail ?? '')))));
+    mounted = page;
+    updateTiles();
+    motion?.cancel();
+    if (direction && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      motion = (expanded ? dashboard : document.getElementById(page.kind)).animate([
+        { opacity: .68, transform: 'translateX(' + direction * 16 + 'px)' },
+        { opacity: 1, transform: 'translateX(0)' }
+      ], { duration: 175, easing: 'ease-out' });
+    }
+    direction = 0;
+  }
+
+  function updateTiles() {
+    const now = new Date();
+    for (const tile of tiles) tile.update({ now, state, hardware });
+    const name = mounted?.kind === 'hardware' ? hardware?.gpuName ?? '' : '';
+    if (device.textContent !== name) device.textContent = name;
+  }
+
+  function navigate(delta) {
+    const index = pages.indexOf(visible);
+    manual = pages[(Math.max(0, index) + delta + pages.length) % pages.length].id;
+    direction = delta;
+  }
+
+  follow.addEventListener('click', () => { manual = undefined; });
+  main.addEventListener('pointerdown', event => {
+    if (!event.isPrimary || event.button !== 0) return;
+    suppressClick = false;
+    const button = event.pointerType === 'touch' ? event.target.closest('button') : null;
+    touch = { id: event.pointerId, x: event.clientX, y: event.clientY, button, time: performance.now(), moved: false };
+  });
+  main.addEventListener('pointermove', event => {
+    if (touch?.id === event.pointerId && Math.hypot(event.clientX - touch.x, event.clientY - touch.y) > 12)
+      touch.moved = true;
+  });
+  main.addEventListener('pointercancel', () => { touch = undefined; });
+  main.addEventListener('pointerup', event => {
+    if (touch?.id !== event.pointerId) return;
+    const dx = event.clientX - touch.x;
+    const dy = event.clientY - touch.y;
+    const { button, time, moved } = touch;
+    touch = undefined;
+    if (Math.abs(dx) >= Math.max(36, Math.min(90, innerWidth * .075)) && Math.abs(dx) >= Math.abs(dy) * 1.35) {
+      suppressClick = true;
+      navigate(dx < 0 ? 1 : -1);
+      return;
+    }
+    if (!button) return;
+    // Handle a touch tap once, even if the browser delays its synthesized click after a swipe.
+    suppressClick = true;
+    if (!moved && Math.hypot(dx, dy) <= 12 && performance.now() - time < 650 &&
+      button.contains(document.elementFromPoint(event.clientX, event.clientY))) button.click();
+  });
+  main.addEventListener('click', event => {
+    if (!suppressClick || event.detail === 0) return;
+    suppressClick = false;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, true);
+  document.addEventListener('keydown', event => {
+    if (!event.altKey && !event.ctrlKey && !event.metaKey && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+      event.preventDefault();
+      navigate(event.key === 'ArrowLeft' ? -1 : 1);
+    }
+  });
+
+  async function press(widget, button) {
+    if (!capability) return;
+    button.disabled = true;
+    try {
+      const response = await fetch('/api/widgets/' + widget.id + '/press', {
+        method: 'POST',
+        headers: { 'X-DeskSide-Shortcut': capability },
+        signal: AbortSignal.timeout(3500)
+      });
+      if (!response.ok) {
+        const type = response.headers.get('Content-Type') ?? '';
+        throw Error(type.startsWith('text/plain') ? await response.text() : '快捷键暂不可用。');
+      }
+      announce('已发送 ' + widget.keys);
+    } catch (error) { announce(error.message || '发送失败'); }
+    finally { button.disabled = !capability; }
+  }
+
+  function announce(message) {
+    feedback.textContent = message;
+    feedback.hidden = false;
+    clearTimeout(feedbackTimer);
+    feedbackTimer = setTimeout(() => { feedback.hidden = true; }, 2500);
+  }
+
+  async function refreshLayout() {
+    try {
+      const response = await fetch('/api/pages', { signal: AbortSignal.timeout(3000) });
+      if (!response.ok) throw Error();
+      const next = await response.json();
+      if (next.layout.revision !== revision || registration(next.shortcutCapability)) {
+        revision = next.layout.revision;
+        pages = next.layout.pages;
+        capability = next.shortcutCapability;
+        if (!pages.some(page => page.id === manual)) manual = undefined;
+        visible = undefined;
+      }
+    } catch {
+      if (capability) {
+        capability = undefined;
+        visible = undefined;
+      }
+    } finally { setTimeout(refreshLayout, 1400); }
+  }
+
+  function registration(value) { return (value ?? null) !== (capability ?? null); }
+
+  async function refreshMetrics() {
+    try {
+      if (needsMetrics && !document.hidden) {
+        const response = await fetch('/api/metrics', { signal: AbortSignal.timeout(4500) });
+        hardware = response.ok ? await response.json() : undefined;
+      }
+    } catch { hardware = undefined; }
+    finally { setTimeout(refreshMetrics, 1800); }
+  }
+
+  refreshLayout();
+  refreshMetrics();
+  setInterval(updateTiles, 350);
+  return { show };
+})();

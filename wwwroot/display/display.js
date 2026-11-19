@@ -60,7 +60,8 @@ function setImage(id, url) {
 
 function refreshScreen(now) {
   const elapsed = now - sampleTime;
-  const mode = !state || (state.mode === 'lyrics' && elapsed > 5000) ? 'clock' : state.mode;
+  const defaultMode = !state || (state.mode === 'lyrics' && elapsed > 5000) ? 'clock' : state.mode;
+  const mode = phonePages.show(defaultMode, state);
   if (shownMode !== mode) {
     for (const screen of screens) screen.hidden = screen.id !== mode;
     shownMode = mode;
@@ -79,7 +80,7 @@ function refreshScreen(now) {
     }
   }
   if (mode !== 'lyrics') return;
-  const song = state.song;
+  const song = state?.song;
   const songId = song?.id ?? '';
   if (displayedSong !== songId) {
     title.textContent = song?.title ?? 'Apple Music';
@@ -88,6 +89,18 @@ function refreshScreen(now) {
     activeIndex = -1;
   }
 
+  if (!state || elapsed > 5000) {
+    if (lineKey !== 'offline') {
+      surroundingLines.forEach(({ element }) => { element.textContent = ''; });
+      current.replaceChildren();
+      current.classList.add('lyric-note');
+      current.textContent = '等待 Windows 连接';
+      fills = [];
+      lineKey = 'offline';
+      activeIndex = -1;
+    }
+    return;
+  }
   const playback = Math.min(state.durationMs ?? Infinity,
     state.positionMs + (state.playing ? Math.min(elapsed, 1200) * state.rate : 0));
   const position = Math.max(0, playback + (state.lyricOffsetMs ?? 0) +
@@ -220,7 +233,8 @@ async function keepAwake() {
 document.addEventListener('visibilitychange', keepAwake);
 reducedMotion.addEventListener('change', () => { lineKey = undefined; });
 window.addEventListener('resize', () => { if (shownMode === 'lyrics') fitLyrics(); });
-document.addEventListener('click', async () => {
+document.addEventListener('click', async event => {
+  if (event.target.closest('button')) return;
   if (!document.fullscreenElement) {
     try { await document.documentElement.requestFullscreen?.(); }
     catch { /* The browser may disallow full screen. */ }

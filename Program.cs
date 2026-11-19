@@ -1,5 +1,6 @@
 using System.Net;
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text;
 
 const int displayPort = 8765;
@@ -7,6 +8,7 @@ const int controlPort = 8766;
 const string controlUrl = "http://127.0.0.1:8766";
 const int maxPhotoBytes = 8 * 1024 * 1024;
 const int maxLyricOffsetMs = 10_000;
+var shortcutCapability = Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
@@ -24,6 +26,9 @@ builder.WebHost.ConfigureKestrel(options =>
 builder.Services.AddSingleton(new PanelSettings(Path.Combine(project, ".data")));
 builder.Services.AddSingleton(service => new LyricAppearanceSettings(service.GetRequiredService<PanelSettings>().DataPath));
 builder.Services.AddSingleton(service => new LyricsCatalog(service.GetRequiredService<PanelSettings>().DataPath));
+builder.Services.AddSingleton(service => new DisplayPages(service.GetRequiredService<PanelSettings>().DataPath));
+builder.Services.AddSingleton<KeyboardShortcut>();
+builder.Services.AddSingleton<HardwareMetrics>();
 builder.Services.AddSingleton<AppleMusic>();
 builder.Services.AddHostedService(service => service.GetRequiredService<AppleMusic>());
 builder.Services.AddSingleton(new UsbBridge(Path.Combine(project, ".tools", "platform-tools", "adb.exe"), displayPort));
@@ -39,12 +44,16 @@ app.Use(async (context, next) =>
         return;
     }
 
-    if (context.Request.Method == HttpMethods.Post &&
-        (port != controlPort || context.Request.Headers.Origin != $"http://{context.Request.Host}" ||
-         context.Request.Headers["X-DeskSide-Control"] != "1"))
+    if (context.Request.Method == HttpMethods.Post)
     {
-        context.Response.StatusCode = 403;
-        return;
+        var localControl = port == controlPort && context.Request.Headers["X-DeskSide-Control"] == "1";
+        var phoneShortcut = port == displayPort && context.Request.Path.StartsWithSegments("/api/widgets") &&
+            context.Request.Headers["X-DeskSide-Shortcut"] == shortcutCapability;
+        if ((!localControl && !phoneShortcut) || context.Request.Headers.Origin != $"http://{context.Request.Host}")
+        {
+            context.Response.StatusCode = 403;
+            return;
+        }
     }
     if ((context.Request.Path.Value ?? "").EndsWith(".html", StringComparison.OrdinalIgnoreCase))
     {
@@ -70,7 +79,7 @@ app.MapGet("/api/state", (HttpContext context, AppleMusic player, PanelSettings 
     UsbBridge usb, LyricAppearanceSettings appearance) =>
 {
     var state = player.Read();
-    var (preferences, wallpaper) = settings.Read();
+    var (preferences, wallpaper, displayRevision) = settings.Read();
     var labels = catalog.Read(state.Song, state.DurationMs);
     var calibration = catalog.ReadCalibration(state.Song, labels);
     var recentSong = state.Song != null &&
@@ -93,6 +102,7 @@ app.MapGet("/api/state", (HttpContext context, AppleMusic player, PanelSettings 
     return Results.Ok(new
     {
         mode,
+        displayRevision,
         lyricAppearance = appearance.Read().Appearance,
         song = state.Song,
         state.Playing,
@@ -109,6 +119,43 @@ app.MapGet("/api/state", (HttpContext context, AppleMusic player, PanelSettings 
         lines = position == null ? [] : labels.Lines,
         control
     });
+});
+
+app.MapGet("/api/pages", (HttpContext context, DisplayPages pages, UsbBridge usb) =>
+{
+    var layout = pages.Read();
+    var capability = context.Connection.LocalPort == displayPort && layout.ShortcutsEnabled && usb.Status == "ready"
+        ? shortcutCapability : null;
+    return Results.Ok(new { layout, shortcutCapability = capability });
+});
+
+app.MapPost("/api/pages", (DisplayLayout proposed, DisplayPages pages) =>
+{
+    var result = pages.Save(proposed);
+    return result.Value != null ? Results.Ok(result.Value) :
+        Error(result.Error!, result.Conflict ? 409 : 400);
+});
+
+app.MapPost("/api/pages/validate-widget", (WidgetManifest manifest) =>
+{
+    var error = DisplayPages.ValidateManifest(manifest);
+    return error == null ? Results.Ok(manifest) : Error(error);
+});
+
+app.MapGet("/api/metrics", async (HardwareMetrics metrics, CancellationToken token) =>
+    Results.Ok(await metrics.ReadAsync(token)));
+
+app.MapPost("/api/widgets/{id:guid}/press", (Guid id, HttpContext context, DisplayPages pages,
+    UsbBridge usb, KeyboardShortcut keyboard) =>
+{
+    var layout = pages.Read();
+    if (context.Connection.LocalPort != displayPort || usb.Status != "ready" || !layout.ShortcutsEnabled)
+        return Error("请在 Windows 面板启用手机快捷键并通过 USB 连接。", 403);
+    var widget = layout.Pages.SelectMany(page => page.Widgets)
+        .FirstOrDefault(widget => widget.Id == id && widget.Type == "shortcut");
+    if (widget == null) return Error("该快捷键组件已移除。", 404);
+    var error = keyboard.Press(widget.Keys);
+    return error == null ? Results.NoContent() : Error(error, 409);
 });
 
 app.MapGet("/api/appearance", (HttpContext context, LyricAppearanceSettings settings) =>

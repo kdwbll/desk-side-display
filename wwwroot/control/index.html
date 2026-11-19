@@ -6,9 +6,13 @@
   <title>桌面副屏 · Windows 控制</title>
   <link rel="stylesheet" href="/control/control.css">
   <link rel="stylesheet" href="/shared/lyric-appearance.css">
+  <link rel="stylesheet" href="/shared/widgets.css">
+  <link rel="stylesheet" href="/control/pages.css">
   <script src="/control/control.js" defer></script>
   <script src="/shared/lyric-appearance.js" defer></script>
   <script src="/control/appearance-control.js" defer></script>
+  <script src="/shared/widgets.js" defer></script>
+  <script src="/control/pages.js" defer></script>
 </head>
 <body>
   <main>
@@ -35,6 +39,34 @@
           <input id="photo-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled>
         </label>
       </div>
+    </section>
+    <section aria-labelledby="pages-heading">
+      <h2 id="pages-heading">界面与小组件</h2>
+      <p class="detail">手机左右滑动时按这里的顺序切换。保存后同步到手机。</p>
+      <fieldset id="page-editor" disabled>
+        <div class="actions">
+          <button id="page-add" type="button">新建界面</button>
+          <span id="page-count" class="detail"></span>
+        </div>
+        <ol id="page-order"></ol>
+        <div id="page-detail"></div>
+        <details id="widget-import">
+          <summary>导入 AI 自定义组件</summary>
+          <div class="actions">
+            <button id="copy-widget-prompt" type="button">复制 AI 提示词</button>
+            <a href="/shared/widget-v1.schema.json" download>下载 JSON 规范</a>
+          </div>
+          <label for="widget-manifest">粘贴组件 JSON</label>
+          <textarea id="widget-manifest" rows="5" maxlength="4096" spellcheck="false"></textarea>
+          <button id="widget-import-add" type="button">校验并添加到本页</button>
+        </details>
+        <label class="shortcut-permission"><input type="checkbox" id="page-shortcuts"> 允许通过 USB 发送已配置的 Windows 快捷键</label>
+        <div class="actions page-save">
+          <button id="pages-save" type="button">保存界面</button>
+          <button id="pages-reload" type="button">读取已保存设置</button>
+        </div>
+      </fieldset>
+      <p id="pages-status" class="detail" role="status"></p>
     </section>
     <section aria-labelledby="appearance-heading">
       <h2 id="appearance-heading">歌词外观</h2>

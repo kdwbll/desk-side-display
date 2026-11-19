@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Desk Side Display Widget v1",
+  "description": "一个声明式小组件。template 和 detail 可使用 {{time}}、{{date}}、{{music.title}}、{{music.artist}}、{{music.progress}}、{{music.duration}}、{{gpu.name}} 和下方列出的任意硬件指标。缺值显示为 —，有读数时自动附带单位。字符串作为纯文本渲染。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "name", "size", "color", "template"],
+  "properties": {
+    "version": { "const": 1 },
+    "name": { "type": "string", "minLength": 1, "maxLength": 24, "pattern": "\\S" },
+    "size": { "enum": ["small", "medium", "large"] },
+    "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+    "template": { "type": "string", "minLength": 1, "maxLength": 120, "pattern": "\\S" },
+    "detail": { "type": ["string", "null"], "minLength": 1, "maxLength": 160, "pattern": "\\S" },
+    "gauge": {
+      "enum": [null, "cpu.usage", "cpu.temperature", "gpu.usage", "gpu.temperature", "gpu.power", "gpu.fan",
+        "gpu.clock", "ram.used", "ram.total", "ram.usage"]
+    }
+  }
+}
