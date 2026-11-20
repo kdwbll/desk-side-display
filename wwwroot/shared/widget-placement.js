@@ -13,7 +13,7 @@ window.widgetPlacement = (() => {
     const gapX = 18;
     const gapY = 24;
     const margin = 35;
-    const top = expanded ? (page.name.trim() ? 138 : margin) : 620;
+    const preferredTop = expanded ? (page.name.trim() ? 138 : margin) : 620;
     const column = (edge - margin * 2 + gapX) / 4;
     const slots = [];
     let row = 0;
@@ -24,24 +24,31 @@ window.widgetPlacement = (() => {
       slots.push({ row, column: used, span });
       used += span;
     }
+    const top = Math.min(preferredTop, edge - margin - (row + 1) * minHeight - row * gapY);
     const height = Math.floor((edge - margin - top + gapY) / (row + 1)) - gapY;
-    const occupied = page.widgets.flatMap(widget => widget.placement ? [widget.placement] : []);
-    return page.widgets.map((widget, index) => {
-      if (widget.placement) return { ...widget.placement };
-      const slot = slots[index];
-      let rect = {
-        x: Math.round(margin + column * slot.column),
-        y: top + slot.row * (height + gapY),
-        width: Math.round(column * slot.span - gapX),
-        height: Math.max(minHeight, height)
-      };
-      rect.y = Math.min(rect.y, edge - rect.height);
-      if (occupied.some(other => overlaps(rect, other))) {
-        rect = findSpace(rect, occupied);
-      }
-      occupied.push(rect);
-      return rect;
+    const defaults = slots.map(slot => ({
+      x: Math.round(margin + column * slot.column),
+      y: top + slot.row * (height + gapY),
+      width: Math.round(column * slot.span - gapX),
+      height
+    }));
+    const occupied = [];
+    const result = page.widgets.map(({ placement }) => {
+      if (!placement || occupied.some(other => overlaps(placement, other))) return null;
+      occupied.push(placement);
+      return { ...placement };
     });
+    for (const [index, preferred] of defaults.entries()) {
+      if (result[index]) continue;
+      const rect = occupied.some(other => overlaps(preferred, other))
+        ? findSpace(preferred, occupied) ?? findSpace({ ...preferred, width: minWidth, height: minHeight }, occupied)
+        : preferred;
+      // If a saved layout fills the canvas, re-pack all widgets to make room for new ones.
+      if (!rect) return defaults;
+      result[index] = rect;
+      occupied.push(rect);
+    }
+    return result;
   }
 
   function overlaps(a, b) {
@@ -50,8 +57,8 @@ window.widgetPlacement = (() => {
   }
 
   function findSpace(rect, occupied) {
-    const xs = [rect.x, 0, ...occupied.map(other => other.x + other.width + 8)].sort((a, b) => a - b);
-    const ys = [rect.y, 0, ...occupied.map(other => other.y + other.height + 8)].sort((a, b) => a - b);
+    const xs = [rect.x, 0, ...occupied.map(other => other.x + other.width)];
+    const ys = [rect.y, 0, ...occupied.map(other => other.y + other.height)];
     for (const y of ys) {
       if (y + rect.height > edge) continue;
       for (const x of xs) {
@@ -60,10 +67,9 @@ window.widgetPlacement = (() => {
         if (!occupied.some(other => overlaps(candidate, other))) return candidate;
       }
     }
-    return rect;
   }
 
-  function adjust(rect, dx, dy, direction = '') {
+  function bounded(rect, dx, dy, direction) {
     if (!direction) return {
       ...rect, x: clamp(rect.x + dx, 0, edge - rect.width), y: clamp(rect.y + dy, 0, edge - rect.height)
     };
@@ -77,6 +83,36 @@ window.widgetPlacement = (() => {
     return { x: leftResult, y: topResult, width: rightResult - leftResult, height: bottomResult - topResult };
   }
 
+  function adjust(rect, dx, dy, direction = '', obstacles = []) {
+    const horizontally = adjustAxis(rect, dx, 0, direction, obstacles);
+    return adjustAxis(horizontally, 0, dy, direction, obstacles);
+  }
+
+  function adjustAxis(rect, dx, dy, direction, obstacles) {
+    if (!dx && !dy) return rect;
+    const at = fraction => bounded(rect, dx * fraction, dy * fraction, direction);
+    const clear = candidate => {
+      const x = Math.min(rect.x, candidate.x);
+      const y = Math.min(rect.y, candidate.y);
+      const swept = {
+        x, y,
+        width: Math.max(rect.x + rect.width, candidate.x + candidate.width) - x,
+        height: Math.max(rect.y + rect.height, candidate.y + candidate.height) - y
+      };
+      return !obstacles.some(other => overlaps(swept, other));
+    };
+    const target = at(1);
+    if (clear(target)) return target;
+    let start = 0;
+    let end = 1;
+    for (let i = 0; i < 12; i++) {
+      const fraction = (start + end) / 2;
+      if (clear(at(fraction))) start = fraction;
+      else end = fraction;
+    }
+    return at(start);
+  }
+
   function place(frame, rect) {
     frame.style.left = rect.x / 10 + '%';
     frame.style.top = rect.y / 10 + '%';
@@ -84,9 +120,11 @@ window.widgetPlacement = (() => {
     frame.style.height = rect.height / 10 + '%';
   }
 
-  function preset(rect, size) {
+  function preset(page, widget, size) {
     const width = { small: 220, medium: 455, large: 930 }[size];
-    return { ...rect, width, x: Math.min(rect.x, edge - width) };
+    const rects = resolve(page);
+    const index = page.widgets.indexOf(widget);
+    return adjust(rects[index], width - rects[index].width, 0, 'e', rects.filter((_, i) => i !== index));
   }
 
   function frame(tile, rect) {

@@ -40,20 +40,6 @@
 #page-indicator { display: flex; gap: 6px; align-items: center; }
 .page-dot { width: 5px; height: 5px; border-radius: 10px; background: #777486; }
 .page-dot.active { width: 17px; background: #ddd4fb; }
-#follow-pc {
-  position: absolute;
-  inset-inline-end: 10px;
-  inset-block-end: calc(3px + env(safe-area-inset-bottom, 0px));
-  border: 0;
-  border-radius: 6px;
-  color: #e2ddf4;
-  background: #363349;
-  min-height: 24px;
-  padding: 2px 10px;
-  font: inherit;
-  font-size: 11px;
-  pointer-events: auto;
-}
 #shortcut-feedback {
   position: absolute;
   z-index: 2;

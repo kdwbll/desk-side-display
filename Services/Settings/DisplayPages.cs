@@ -13,6 +13,10 @@ sealed record WidgetPlacement(int X, int Y, int Width, int Height)
 {
     public bool IsValid() => Width is >= 55 and <= 1000 && Height is >= 65 and <= 1000 &&
         X >= 0 && Y >= 0 && X <= 1000 - Width && Y <= 1000 - Height;
+
+    public bool Overlaps(WidgetPlacement other) =>
+        X < other.X + other.Width && X + Width > other.X &&
+        Y < other.Y + other.Height && Y + Height > other.Y;
 }
 
 sealed class DisplayPages
@@ -40,10 +44,11 @@ sealed class DisplayPages
         try
         {
             var saved = JsonSerializer.Deserialize<DisplayLayout>(File.ReadAllBytes(path), Json);
-            if (saved != null && Validate(saved) == null)
+            if (saved != null && Validate(saved, allowLegacyOverlap: true) == null)
             {
+                var pages = saved.Pages.Select(RepairLegacyPlacements).ToArray();
                 var known = (saved.WidgetLibrary ?? []).Where(item => ValidateManifest(item) == null);
-                layout = saved with { WidgetLibrary = MergeLibrary(known, saved.Pages) };
+                layout = saved with { Pages = pages, WidgetLibrary = MergeLibrary(known, pages) };
             }
         }
         catch (JsonException) { }
@@ -89,7 +94,20 @@ sealed class DisplayPages
         Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(
             item with { Size = "small", Color = "#000000" }, Json)));
 
-    private static string? Validate(DisplayLayout value)
+    private static DisplayPage RepairLegacyPlacements(DisplayPage page)
+    {
+        var placed = new List<WidgetPlacement>();
+        var widgets = page.Widgets.Select(widget =>
+        {
+            if (widget.Placement is not { } rect) return widget;
+            if (placed.Any(rect.Overlaps)) return widget with { Placement = null };
+            placed.Add(rect);
+            return widget;
+        }).ToArray();
+        return page with { Widgets = widgets };
+    }
+
+    private static string? Validate(DisplayLayout value, bool allowLegacyOverlap = false)
     {
         if (value.Revision < 0 || value.Revision == int.MaxValue ||
             value.Pages is not { Length: >= 4 and <= MaxPages } || value.Pages.Any(page => page == null))
@@ -103,13 +121,18 @@ sealed class DisplayPages
                 (BuiltIns.Contains(page.Id) ? page.Kind != page.Id :
                     page.Kind != "custom" || !Guid.TryParseExact(page.Id, "N", out _)))
                 return "页面名称、背景颜色或布局无效。每页最多八个组件。";
+            var placed = new List<WidgetPlacement>();
             foreach (var widget in page.Widgets)
             {
                 if (widget == null || widget.Id == Guid.Empty || !widgetIds.Add(widget.Id) ||
                     !DisplayName(widget.Name) || !Size(widget.Size) || !Color(widget.Color))
                     return "组件的名称、尺寸、颜色或标识无效。";
-                if (widget.Placement?.IsValid() == false)
-                    return "组件位置及尺寸必须在界面范围内。";
+                if (widget.Placement is { } rect)
+                {
+                    if (!rect.IsValid()) return "组件位置及尺寸必须在界面范围内。";
+                    if (!allowLegacyOverlap && placed.Any(rect.Overlaps)) return "组件不能重叠，请调整位置或大小。";
+                    placed.Add(rect);
+                }
                 var error = widget.Type switch
                 {
                     "clock" or "date" or "music" => null,

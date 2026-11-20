@@ -65,6 +65,22 @@
 .weather-stats { display: flex; flex-wrap: wrap; gap: .25em .6em; margin-top: .34em; }
 .weather-stat { display: grid; gap: .15em; font-size: .55em; color: #eff7ff; }
 .weather-stat b { color: #fff; font-weight: 650; white-space: nowrap; }
+.weather-credit {
+  position: absolute;
+  inset-inline-end: 7%;
+  inset-block-end: 5%;
+  z-index: 2;
+  color: #e3f3ff;
+  font-size: .47em;
+  line-height: 1;
+  text-underline-offset: .13em;
+  white-space: nowrap;
+}
+.widget-weather:is([data-shape="round"], [data-shape="square"]) .weather-credit {
+  inset-inline: 0;
+  inset-block-end: 6%;
+  justify-self: center;
+}
 .weather-sky { position: relative; display: grid; place-items: center; min-width: 0; padding-right: .5em; }
 .weather-motif { position: relative; width: min(100%, 6em); aspect-ratio: 1; }
 .weather-orb {

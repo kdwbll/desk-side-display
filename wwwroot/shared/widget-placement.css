@@ -64,7 +64,7 @@
   width: min(45%, 35cqh, 4.7em);
 }
 .widget-placed .widget-weather-only {
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr);
   align-content: stretch;
   align-items: center;
 }

@@ -394,7 +394,7 @@ window.widgetV2 = (() => {
       empty.hidden = true;
       tile.append(empty);
     }
-    if (references(manifest).some(key => key.startsWith('weather.'))) {
+    if (!blocks.some(block => block.kind === 'weather') && references(manifest).some(key => key.startsWith('weather.'))) {
       const credit = node('a', 'widget-v2-credit', '天气数据 · Open-Meteo');
       credit.href = 'https://open-meteo.com/';
       credit.target = '_blank';

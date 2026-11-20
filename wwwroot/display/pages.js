@@ -10,7 +10,6 @@ const phonePages = (() => {
   const empty = document.getElementById('dashboard-empty');
   const footer = document.getElementById('page-footer');
   const indicator = document.getElementById('page-indicator');
-  const follow = document.getElementById('follow-pc');
   const feedback = document.getElementById('shortcut-feedback');
   const builtIn = (id, name) => ({ id, kind: id, name, widgets: [], color: '#171923' });
   let pages = [builtIn('lyrics', '歌词'), builtIn('photo', '相框'), builtIn('clock', '时钟'),
@@ -61,7 +60,6 @@ const phonePages = (() => {
       visible = page;
       mount(page);
     }
-    if (follow.hidden === !!manual) follow.hidden = !manual;
     return page.kind === 'hardware' || page.kind === 'custom' ? 'dashboard' : page.kind;
   }
 
@@ -138,7 +136,6 @@ const phonePages = (() => {
     direction = delta;
   }
 
-  follow.addEventListener('click', () => { manual = undefined; });
   main.addEventListener('pointerdown', event => {
     if (!event.isPrimary || event.button !== 0) return;
     suppressClick = false;

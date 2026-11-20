@@ -43,8 +43,13 @@ window.deskWeather = (() => {
       stats.append(metric);
       return value;
     });
+    const credit = node('a', 'weather-credit', 'Open-Meteo');
+    credit.href = 'https://open-meteo.com/';
+    credit.target = '_blank';
+    credit.rel = 'noopener noreferrer';
+    credit.setAttribute('aria-label', '天气数据来源 Open-Meteo');
     report.append(place, temp, status, stats);
-    card.append(report, sky);
+    card.append(report, sky, credit);
     let signature;
 
     function update(data, format) {

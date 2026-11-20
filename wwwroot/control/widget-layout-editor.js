@@ -45,6 +45,7 @@ window.widgetLayoutEditor = (() => {
         frame.append(handle);
       }
       frame.addEventListener('focus', () => select(stage, widget.id));
+      const obstacles = () => rects.filter((_, i) => i !== index);
       frame.addEventListener('keydown', event => {
         const movement = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key];
         if (!movement) return;
@@ -52,7 +53,7 @@ window.widgetLayoutEditor = (() => {
         const [x, y] = movement;
         const step = event.altKey ? 2 : 12;
         const edge = event.shiftKey ? (x ? 'e' : 's') : '';
-        const next = widgetPlacement.adjust(rects[index], x * step, y * step, edge);
+        const next = widgetPlacement.adjust(rects[index], x * step, y * step, edge, obstacles());
         widgetPlacement.place(frame, next);
         store(index, next);
       });
@@ -64,13 +65,19 @@ window.widgetLayoutEditor = (() => {
         select(stage, widget.id);
         frame.setPointerCapture(event.pointerId);
         drag = {
-          pointer: event.pointerId, x: event.clientX, y: event.clientY,
+          pointer: event.pointerId, originX: event.clientX, originY: event.clientY, x: 0, y: 0,
           width: stage.clientWidth, height: stage.clientHeight,
-          rect: rects[index], edge: event.target.dataset.edge
+          rect: rects[index], edge: event.target.dataset.edge, obstacles: obstacles()
         };
       });
-      const position = event => widgetPlacement.adjust(drag.rect,
-        (event.clientX - drag.x) * 1000 / drag.width, (event.clientY - drag.y) * 1000 / drag.height, drag.edge);
+      const position = event => {
+        const x = Math.round((event.clientX - drag.originX) * 1000 / drag.width);
+        const y = Math.round((event.clientY - drag.originY) * 1000 / drag.height);
+        drag.rect = widgetPlacement.adjust(drag.rect, x - drag.x, y - drag.y, drag.edge, drag.obstacles);
+        drag.x = x;
+        drag.y = y;
+        return drag.rect;
+      };
       frame.addEventListener('pointermove', event => {
         if (event.pointerId === drag?.pointer) widgetPlacement.place(frame, position(event));
       });

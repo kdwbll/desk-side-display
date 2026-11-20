@@ -220,7 +220,7 @@
     }, { max: 24 });
     field(fields, '尺寸', widget.size, value => {
       widget.size = value;
-      if (widget.placement) widget.placement = widgetPlacement.preset(widget.placement, value);
+      if (widget.placement) widget.placement = widgetPlacement.preset(page, widget, value);
     }, { entries: sizes });
     field(fields, '颜色', widget.color, value => { widget.color = value; }, { type: 'color' });
     if (widget.type === 'text') field(fields, '内容', widget.text, value => { widget.text = value; }, { max: 160 });
