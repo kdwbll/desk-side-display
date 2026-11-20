@@ -10,8 +10,12 @@
   const permission = $('page-shortcuts');
   const save = $('pages-save');
   const kinds = {
-    clock: '时钟', date: '日期', music: '正在播放', text: '便签', metric: '硬件仪表', shortcut: '键盘快捷键', custom: '自定义'
+    clock: '时钟', image: '图片', emoji: 'Emoji', gif: 'GIF', date: '日期', music: '正在播放',
+    text: '便签', metric: '硬件仪表', shortcut: '键盘快捷键', custom: '自定义'
   };
+  const presets = { clock: ['全屏时钟', '时钟'], photo: ['全屏相框', '相框'] };
+  const presetSelect = $('page-preset');
+  const presetAdd = $('page-add-preset');
   const example = {
     version: 2, widget: 'world-clock', kind: 'clock', name: '世界时钟', size: 'medium', color: '#7de8c8',
     format: { locale: 'zh-CN', timeZone: 'Asia/Shanghai', hourCycle: 'h23' },
@@ -42,7 +46,9 @@
   let selected;
   let preview;
   let layoutTools;
+  let pixelTools;
   let resetLayout;
+  let previewClocks = [];
   let replacing;
   let bundled = [];
   let pageLimit;
@@ -107,7 +113,15 @@
       return row;
     }));
     $('page-count').textContent = draft.pages.length + ' / ' + pageLimit;
-    $('page-add').disabled = draft.pages.length >= pageLimit;
+    const full = draft.pages.length >= pageLimit;
+    $('page-add').disabled = full;
+    const available = Object.entries(presets).filter(([id]) => !draft.pages.some(page => page.id === id));
+    const previous = presetSelect.value;
+    presetSelect.replaceChildren(new Option('页面预设', ''),
+      ...available.map(([id, [label]]) => new Option(label, id)));
+    presetSelect.value = available.some(([id]) => id === previous) ? previous : '';
+    presetSelect.disabled = full || !available.length;
+    presetAdd.disabled = presetSelect.disabled || !presetSelect.value;
   }
 
   function refreshPreview() {
@@ -116,14 +130,16 @@
     preview.hidden = page.widgets.length === 0;
     layoutTools.hidden = preview.hidden;
     resetLayout.disabled = !widgetPlacement.isFree(page);
+    previewClocks = [];
     widgetLayoutEditor.render(preview, page, widget => {
       const tile = widget.manifest?.version === 2 ? widgetV2.make(widget) : make(widget);
       tile.update(previewData);
+      if (widget.type === 'clock') previewClocks.push(tile);
       return tile.element;
     }, () => {
       resetLayout.disabled = false;
       save.disabled = !dirty();
-    });
+    }, pixelTools);
   }
 
   function customChoices() {
@@ -158,8 +174,8 @@
     }, { max: 24 });
     if (['clock', 'hardware', 'custom'].includes(page.kind))
       field(props, '背景', page.color, value => { page.color = value; }, { type: 'color' });
-    if (page.kind === 'custom') props.append(button('删除界面', () => {
-      if (!confirm('删除此自定义界面及其中的组件？保存后生效。')) return;
+    if (page.kind === 'custom' || Object.hasOwn(presets, page.kind)) props.append(button('删除界面', () => {
+      if (!confirm('移除此界面及其中的组件？保存后生效。')) return;
       draft.pages = draft.pages.filter(item => item.id !== selected);
       selected = draft.pages[0].id;
       render();
@@ -181,6 +197,8 @@
       const widget = manifest
         ? { id: crypto.randomUUID(), type: 'custom', name: manifest.name, size: manifest.size, color: manifest.color, manifest }
         : { id: crypto.randomUUID(), type: key, name: kinds[key], size: 'small', color: '#82d9ce' };
+      if (['image', 'gif', 'emoji', 'clock'].includes(key)) widget.name = '';
+      if (key === 'emoji') widget.text = '✨';
       if (key === 'text') widget.text = '写点什么';
       if (key === 'metric') widget.metric = 'cpu.usage';
       if (key === 'shortcut') widget.keys = '';
@@ -194,13 +212,15 @@
     preview = node('div', 'widget-layout-preview');
     preview.setAttribute('aria-label', '组件预览（硬件数字为示例）');
     layoutTools = node('div', 'actions widget-layout-tools');
+    pixelTools = node('div', 'layout-pixel-tools');
     resetLayout = button('恢复自动布局', () => {
       for (const widget of page.widgets) delete widget.placement;
       refreshPreview();
       save.disabled = !dirty();
     });
     layoutTools.append(node('span', 'detail', '拖动移动 · 拉边框缩放 · 按 Alt 暂停吸附'), resetLayout);
-    detail.replaceChildren(props, toolbar, layoutTools, preview, ...page.widgets.map(widget => editWidget(page, widget)));
+    detail.replaceChildren(props, toolbar, layoutTools, preview, pixelTools,
+      ...page.widgets.map(widget => editWidget(page, widget)));
     if (page.widgets.length === 1) detail.querySelector('.page-widget-editor').open = true;
     refreshPreview();
     permission.checked = draft.shortcutsEnabled;
@@ -224,6 +244,9 @@
     }, { entries: sizes });
     field(fields, '颜色', widget.color, value => { widget.color = value; }, { type: 'color' });
     if (widget.type === 'text') field(fields, '内容', widget.text, value => { widget.text = value; }, { max: 160 });
+    if (widget.type === 'emoji') field(fields, 'Emoji 内容', widget.text, value => { widget.text = value; },
+      { max: 32, placeholder: '按 Win + . 打开表情面板' });
+    if (widget.type === 'image' || widget.type === 'gif') editImage(fields, widget);
     if (widget.type === 'metric') field(fields, '读数', widget.metric, value => { widget.metric = value; }, {
       entries: Object.entries(metrics).map(([id, info]) => [id, info[0]])
     });
@@ -273,6 +296,47 @@
     return box;
   }
 
+  function editImage(fields, widget) {
+    const gif = widget.type === 'gif';
+    const picker = node('label', 'file-picker');
+    const caption = node('span');
+    const input = node('input');
+    input.type = 'file';
+    input.accept = gif ? 'image/gif' : 'image/jpeg,image/png,image/webp';
+    input.setAttribute('aria-label', gif ? '选择 GIF' : '选择图片');
+    const clear = button('清除图片', () => {
+      delete widget.mediaId;
+      update();
+    });
+    const update = () => {
+      caption.textContent = (widget.mediaId ? '更换' : '选择') + (gif ? ' GIF' : '图片');
+      clear.hidden = !widget.mediaId;
+      refreshPreview();
+      save.disabled = !dirty();
+    };
+    caption.textContent = (widget.mediaId ? '更换' : '选择') + (gif ? ' GIF' : '图片');
+    clear.hidden = !widget.mediaId;
+    input.addEventListener('change', async () => {
+      const file = input.files[0];
+      input.value = '';
+      if (!file) return;
+      editor.disabled = true;
+      status.textContent = '';
+      try {
+        const form = new FormData();
+        form.append('file', file);
+        const result = await send('/api/widget-images/' + widget.type, form);
+        widget.mediaId = result.id;
+        update();
+      } catch (error) { status.textContent = error.message; }
+      finally { editor.disabled = false; }
+    });
+    picker.append(caption, input);
+    fields.append(picker, clear);
+    field(fields, '图片填充', widget.fit ?? 'contain', value => { widget.fit = value; },
+      { entries: [['contain', '完整显示'], ['cover', '铺满卡片']] });
+  }
+
   async function load() {
     editor.disabled = true;
     try {
@@ -300,6 +364,14 @@
     draft.pages.push({ id: selected, kind: 'custom', name: '我的界面', color: '#151621', widgets: [] });
     render();
     detail.querySelector('input')?.focus();
+  });
+  presetSelect.addEventListener('change', () => { presetAdd.disabled = !presetSelect.value; });
+  presetAdd.addEventListener('click', () => {
+    const id = presetSelect.value;
+    if (!Object.hasOwn(presets, id) || draft.pages.length >= pageLimit || draft.pages.some(page => page.id === id)) return;
+    selected = id;
+    draft.pages.push({ id, kind: id, name: presets[id][1], color: '#171923', widgets: [] });
+    render();
   });
   permission.addEventListener('change', () => {
     if (!draft) return;
@@ -373,5 +445,9 @@
       status.textContent = '已复制提示词和规范，替换其中的用途后发给 AI。';
     } catch { status.textContent = '复制失败，可以下载 JSON 规范后交给 AI。'; }
   });
+  setInterval(() => {
+    const now = new Date();
+    for (const tile of previewClocks) tile.update({ now });
+  }, 1000);
   load();
 })();

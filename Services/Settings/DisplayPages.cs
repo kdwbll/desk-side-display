@@ -8,7 +8,9 @@ sealed record DisplayLayout(int Revision, bool ShortcutsEnabled, DisplayPage[] P
 sealed record DisplayPage(string Id, string Name, string Kind, string Color, DisplayWidget[] Widgets);
 sealed record DisplayWidget(Guid Id, string Type, string Name, string Size, string Color,
     string? Text = null, string? Metric = null, string? Keys = null, WidgetManifest? Manifest = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WidgetPlacement? Placement = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WidgetPlacement? Placement = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? MediaId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Fit = null);
 sealed record WidgetPlacement(int X, int Y, int Width, int Height)
 {
     public bool IsValid() => Width is >= 55 and <= 1000 && Height is >= 65 and <= 1000 &&
@@ -24,6 +26,7 @@ sealed class DisplayPages
     public const int MaxPages = 10;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private static readonly string[] BuiltIns = ["lyrics", "photo", "clock", "hardware"];
+    private static readonly string[] Required = ["lyrics", "hardware"];
     private static readonly string[] Metrics =
     [
         "cpu.usage", "cpu.temperature", "gpu.usage", "gpu.temperature", "gpu.power",
@@ -110,8 +113,8 @@ sealed class DisplayPages
     private static string? Validate(DisplayLayout value, bool allowLegacyOverlap = false)
     {
         if (value.Revision < 0 || value.Revision == int.MaxValue ||
-            value.Pages is not { Length: >= 4 and <= MaxPages } || value.Pages.Any(page => page == null))
-            return $"需要保留四个内置界面，界面总数最多为 {MaxPages} 个。";
+            value.Pages is not { Length: >= 2 and <= MaxPages } || value.Pages.Any(page => page == null))
+            return $"界面总数需要在 2 至 {MaxPages} 个之间。";
         var pageIds = new HashSet<string>(StringComparer.Ordinal);
         var widgetIds = new HashSet<Guid>();
         foreach (var page in value.Pages)
@@ -136,6 +139,9 @@ sealed class DisplayPages
                 var error = widget.Type switch
                 {
                     "clock" or "date" or "music" => null,
+                    "emoji" => Named(widget.Text, 32) ? null : "请输入最多 32 个字符的 Emoji。",
+                    "image" or "gif" => (widget.MediaId == null || WidgetImages.ValidId(widget.MediaId, widget.Type)) &&
+                        (widget.Fit is null or "contain" or "cover") ? null : "组件的图片或填充方式无效。",
                     "text" => Named(widget.Text, 160) ? null : "便签需要 1–160 个字符。",
                     "metric" => Metrics.Contains(widget.Metric) ? null : "请选择可用的硬件指标。",
                     "shortcut" => KeyboardShortcut.TryParseChord(widget.Keys, out _) ? null :
@@ -146,9 +152,11 @@ sealed class DisplayPages
                 if (error != null) return error;
                 if (widget.Type != "shortcut" && widget.Keys != null)
                     return "快捷键只能配置在快捷键组件中。";
+                if (widget.Type is not ("image" or "gif") && (widget.MediaId != null || widget.Fit != null))
+                    return "图片文件只能配置在图片或 GIF 组件中。";
             }
         }
-        return BuiltIns.All(pageIds.Contains) ? null : "请保留歌词、相框、时钟和硬件监控。";
+        return Required.All(pageIds.Contains) ? null : "请保留歌词和硬件监控。";
     }
 
     internal static string? ValidateManifest(WidgetManifest? manifest)
@@ -179,8 +187,6 @@ sealed class DisplayPages
     private static DisplayLayout Defaults() => new(0, false,
     [
         new("lyrics", "歌词", "lyrics", "#171923", []),
-        new("photo", "相框", "photo", "#171923", []),
-        new("clock", "时钟", "clock", "#171923", []),
         new("hardware", "硬件监控", "hardware", "#151621",
         [
             Metric("162024d1-b79b-4f67-9bd7-54433a4f045f", "CPU", "#39dbc6", "cpu.usage"),

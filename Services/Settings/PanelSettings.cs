@@ -60,7 +60,7 @@ sealed class PanelSettings
     }
 
     private static bool Valid(PanelPreferences value) =>
-        value.Mode is "auto" or "lyrics" or "clock" or "photo" && value.Idle is "clock" or "photo";
+        value.Mode is "auto" or "lyrics" or "clock" or "photo" && value.Idle is "clock" or "photo" or "hardware";
 
     public static void Save(string destination, byte[] bytes)
     {

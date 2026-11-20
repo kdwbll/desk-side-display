@@ -9,14 +9,22 @@ window.widgetLayoutEditor = (() => {
   ];
   const snapDistance = 6;
   let activeId;
+  let sizeControls;
   const sizeObserver = new ResizeObserver(([{ target }]) => {
     const dimensions = target.parentElement?.querySelector('.layout-dimensions');
     if (dimensions && target.classList.contains('selected')) measure(target, dimensions);
   });
 
-  function measure(frame, dimensions) {
+  function measure(frame, dimensions, replaceInputs = false) {
     const { width, height } = frame.getBoundingClientRect();
-    dimensions.textContent = Math.round(width) + ' × ' + Math.round(height) + ' px';
+    const pixels = [Math.round(width), Math.round(height)];
+    dimensions.textContent = pixels.join(' × ') + ' px';
+    if (sizeControls.stage !== frame.parentElement) return;
+    if (replaceInputs) sizeControls.edited.clear();
+    sizeControls.fields.forEach((field, index) => {
+      if (!sizeControls.edited.has(field)) field.value = pixels[index];
+    });
+    return pixels;
   }
 
   function background(page) {
@@ -40,9 +48,11 @@ window.widgetLayoutEditor = (() => {
     }
     const dimensions = stage.querySelector('.layout-dimensions');
     dimensions.hidden = !selected;
+    sizeControls.tools.hidden = !selected;
+    sizeControls.note.textContent = '';
     sizeObserver.disconnect();
     if (selected) {
-      measure(selected, dimensions);
+      measure(selected, dimensions, true);
       sizeObserver.observe(selected, { box: 'border-box' });
     }
   }
@@ -90,7 +100,41 @@ window.widgetLayoutEditor = (() => {
     return rect[axis.position] + (edge.includes(axis.end) ? rect[axis.size] : 0);
   }
 
-  function render(stage, page, tileFor, changed) {
+  function setupSizeControls(stage, tools, apply) {
+    const edited = new Set();
+    const fields = ['宽度', '高度'].map(name => {
+      const field = node('input');
+      field.type = 'number';
+      field.min = '1';
+      field.step = '1';
+      field.setAttribute('aria-label', name + '（像素）');
+      field.addEventListener('input', () => edited.add(field));
+      field.addEventListener('keydown', event => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        submit();
+      });
+      return field;
+    });
+    const note = node('span', 'detail');
+    note.setAttribute('role', 'status');
+    const button = node('button', '', '应用尺寸');
+    button.type = 'button';
+    function submit() {
+      const pixels = fields.map(input => input.valueAsNumber);
+      if (pixels.some(value => !Number.isInteger(value) || value < 1)) {
+        note.textContent = '请输入大于 0 的整数像素。';
+        return;
+      }
+      apply(pixels);
+    }
+    button.addEventListener('click', submit);
+    tools.replaceChildren(...fields.flatMap((field, index) => index ? [node('span', '', '×'), field] : [field]),
+      node('span', '', 'px'), button, note);
+    sizeControls = { stage, tools, fields, note, edited };
+  }
+
+  function render(stage, page, tileFor, changed, pixelTools) {
     const rects = widgetPlacement.resolve(page);
     const frames = [];
     const guides = axes.map(axis => {
@@ -108,6 +152,30 @@ window.widgetLayoutEditor = (() => {
       page.widgets.forEach((widget, i) => { widget.placement = { ...rects[i] }; });
       changed();
     };
+    setupSizeControls(stage, pixelTools, requested => {
+      const index = page.widgets.findIndex(widget => widget.id === activeId);
+      if (index < 0) return;
+      const rect = rects[index];
+      const frame = frames[index];
+      const { width, height } = stage.getBoundingClientRect();
+      const style = getComputedStyle(stage);
+      const area = [width - parseFloat(style.borderLeftWidth) - parseFloat(style.borderRightWidth),
+        height - parseFloat(style.borderTopWidth) - parseFloat(style.borderBottomWidth)];
+      const current = frame.getBoundingClientRect();
+      const sizes = ['width', 'height'];
+      const [dx, dy] = requested.map((pixels, i) => {
+        const size = sizes[i];
+        if (pixels === Math.round(current[size])) return 0;
+        return Math.round(Math.min(1, pixels / area[i]) * 1000) - rect[size];
+      });
+      const obstacles = rects.filter((_, i) => i !== index);
+      const shrunk = widgetPlacement.adjust(rect, Math.min(0, dx), Math.min(0, dy), 'se', obstacles);
+      const next = widgetPlacement.adjust(shrunk, Math.max(0, dx), Math.max(0, dy), 'se', obstacles);
+      widgetPlacement.place(frame, next);
+      store(index, next);
+      const applied = measure(frame, dimensions, true);
+      sizeControls.note.textContent = requested.some((pixels, i) => pixels !== applied[i]) ? '已调整为可用尺寸。' : '';
+    });
     for (const [index, widget] of page.widgets.entries()) {
       const frame = widgetPlacement.frame(tileFor(widget), rects[index]);
       frames.push(frame);

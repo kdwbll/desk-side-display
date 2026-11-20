@@ -12,8 +12,7 @@ const phonePages = (() => {
   const indicator = document.getElementById('page-indicator');
   const feedback = document.getElementById('shortcut-feedback');
   const builtIn = (id, name) => ({ id, kind: id, name, widgets: [], color: '#171923' });
-  let pages = [builtIn('lyrics', '歌词'), builtIn('photo', '相框'), builtIn('clock', '时钟'),
-    builtIn('hardware', '硬件监控')];
+  let pages = [builtIn('lyrics', '歌词'), builtIn('hardware', '硬件监控')];
   let capability;
   let shortcutsEnabled = false;
   let actionsEnabled = false;

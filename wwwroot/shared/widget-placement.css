@@ -28,6 +28,9 @@
   scrollbar-width: thin;
 }
 .widget-placed > .widget .widget-label { padding-inline: .12em; }
+.widget-placed > .widget-image-card { padding: 0; overflow: hidden; }
+.widget-placed .widget-emoji-value { font-size: min(34cqw, 57cqh, 4.6em); }
+.widget-placed .widget-clock .widget-value { font-size: min(23cqw, 46cqh, 3.4em); }
 .widget-placed .widget-face { min-height: 0; }
 .widget-placed .widget-gauge { width: min(90cqw, 52cqh, 6.2em); }
 .widget-placed .widget-v2-layout { min-width: 0; gap: min(var(--gap, 8px), 4cqh, 6cqw); }

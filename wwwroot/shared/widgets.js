@@ -78,9 +78,12 @@ window.deskWidgets = (() => {
   function make(widget, press, mediaControl) {
     if (widget.type === 'music') return makeMusic(widget, mediaControl);
     if (widget.type === 'shortcut') return makeShortcut(widget, press);
+    if (widget.type === 'image' || widget.type === 'gif') return makeImage(widget);
+    if (widget.type === 'emoji') return makeEmoji(widget);
     const metric = widget.type === 'metric' ? widget.metric :
       widget.type === 'custom' ? widget.manifest?.gauge : null;
     const tile = node('article', 'widget widget-' + widget.size);
+    if (widget.type === 'clock') tile.classList.add('widget-clock');
     tile.style.setProperty('--widget-accent', widget.color);
     const value = node('span', 'widget-value');
     const detail = node('span', 'widget-detail');
@@ -127,6 +130,31 @@ window.deskWidgets = (() => {
       }
     }
     return { element: tile, update };
+  }
+
+  function makeImage(widget) {
+    const tile = node('article', 'widget widget-' + widget.size + ' widget-image-card');
+    tile.style.setProperty('--widget-accent', widget.color);
+    const image = node('img', 'widget-card-image');
+    image.alt = widget.name.trim() || (widget.type === 'gif' ? 'GIF 动图' : '自选图片');
+    image.style.objectFit = widget.fit ?? 'contain';
+    image.hidden = true;
+    const empty = node('span', 'widget-card-image-empty', '—');
+    empty.setAttribute('aria-label', widget.type === 'gif' ? '暂无 GIF' : '暂无图片');
+    image.addEventListener('load', () => { image.hidden = false; empty.hidden = true; });
+    image.addEventListener('error', () => { image.hidden = true; empty.hidden = false; });
+    if (widget.mediaId) image.src = '/media/widgets/' + encodeURIComponent(widget.mediaId);
+    tile.append(empty, image);
+    if (widget.name.trim()) tile.append(node('span', 'widget-label', widget.name));
+    return { element: tile, update() {} };
+  }
+
+  function makeEmoji(widget) {
+    const tile = node('article', 'widget widget-' + widget.size + ' widget-emoji');
+    tile.style.setProperty('--widget-accent', widget.color);
+    tile.append(node('span', 'widget-emoji-value', widget.text));
+    if (widget.name.trim()) tile.append(node('span', 'widget-label', widget.name));
+    return { element: tile, update() {} };
   }
 
   function makeShortcut(widget, press) {

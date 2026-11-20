@@ -41,6 +41,7 @@
         <select id="idle" disabled>
           <option value="clock">时钟</option>
           <option value="photo">相框</option>
+          <option value="hardware">硬件监控</option>
         </select>
         <label class="file-picker">
           <span>选择相框图片</span>
@@ -54,6 +55,8 @@
       <fieldset id="page-editor" disabled>
         <div class="actions">
           <button id="page-add" type="button">新建界面</button>
+          <select id="page-preset" aria-label="页面预设"></select>
+          <button id="page-add-preset" type="button" disabled>添加预设页面</button>
           <span id="page-count" class="detail"></span>
         </div>
         <ol id="page-order"></ol>

@@ -27,6 +27,7 @@ builder.Services.AddSingleton(new PanelSettings(Path.Combine(project, ".data")))
 builder.Services.AddSingleton(service => new LyricAppearanceSettings(service.GetRequiredService<PanelSettings>().DataPath));
 builder.Services.AddSingleton(service => new LyricsCatalog(service.GetRequiredService<PanelSettings>().DataPath));
 builder.Services.AddSingleton(service => new DisplayPages(service.GetRequiredService<PanelSettings>().DataPath));
+builder.Services.AddSingleton(service => new WidgetImages(service.GetRequiredService<PanelSettings>().DataPath));
 builder.Services.AddSingleton<ClipboardHistory>();
 builder.Services.AddSingleton(service => new WidgetSources(service.GetRequiredService<PanelSettings>().DataPath,
     service.GetRequiredService<ClipboardHistory>()));
@@ -82,22 +83,29 @@ app.MapGet("/", (HttpContext context) =>
     return Results.File(Path.Combine(app.Environment.WebRootPath, page, "index.html"), "text/html; charset=utf-8");
 });
 
-app.MapGet("/api/state", (HttpContext context, AppleMusic player, PanelSettings settings, LyricsCatalog catalog,
-    UsbBridge usb, LyricAppearanceSettings appearance) =>
+app.MapGet("/api/state", (HttpContext context, AppleMusic player, PanelSettings settings, DisplayPages pages,
+    LyricsCatalog catalog, UsbBridge usb, LyricAppearanceSettings appearance) =>
 {
     var state = player.Read();
     var (preferences, wallpaper, displayRevision) = settings.Read();
+    var availablePresets = pages.Read().Pages.Where(page => page.Kind is "clock" or "photo")
+        .Select(page => page.Id).ToArray();
+    var idle = preferences.Idle == "hardware" || availablePresets.Contains(preferences.Idle) ? preferences.Idle
+        : availablePresets.Contains("clock") ? "clock" : availablePresets.FirstOrDefault() ?? "hardware";
+    var selectedMode = preferences.Mode is "auto" or "lyrics" || availablePresets.Contains(preferences.Mode)
+        ? preferences.Mode : "auto";
     var labels = catalog.Read(state.Song, state.DurationMs);
     var calibration = catalog.ReadCalibration(state.Song, labels);
     var recentSong = state.Song != null &&
         (state.Playing || (state.Paused && DateTimeOffset.UtcNow - state.LastPlaying < TimeSpan.FromSeconds(15)));
-    var mode = preferences.Mode == "auto" ? (recentSong ? "lyrics" : preferences.Idle) : preferences.Mode;
+    var mode = selectedMode == "auto" ? (recentSong ? "lyrics" : idle) : selectedMode;
     var age = Math.Clamp((DateTimeOffset.UtcNow - state.SampledAt).TotalMilliseconds, 0, 4_000);
     double? position = state.PositionMs == null ? null : Math.Min(
         state.DurationMs ?? double.MaxValue, state.PositionMs.Value + (state.Playing ? age * state.Rate : 0));
     var control = context.Connection.LocalPort == controlPort ? new
     {
-        preferences,
+        preferences = new PanelPreferences(selectedMode, idle),
+        availablePresets,
         usb = usb.Status,
         state.Status,
         state.CanToggle,
@@ -245,6 +253,8 @@ app.MapPost("/api/appearance/presets/{id:guid}/{action}",
 
 app.MapGet("/media/cover", (string? v, AppleMusic player) => ImageResult(player.Read().Artwork, v));
 app.MapGet("/media/wallpaper", (string? v, PanelSettings settings) => ImageResult(settings.Read().Wallpaper, v));
+app.MapGet("/media/widgets/{id}", (string id, WidgetImages images) =>
+    images.Find(id) is { } media ? Results.File(media.Path, media.Type) : Results.NotFound());
 
 app.MapPost("/api/settings", async (HttpRequest request, PanelSettings settings, CancellationToken token) =>
 {
@@ -262,16 +272,21 @@ app.MapPost("/api/playback/{action}", async (string action, AppleMusic player) =
 
 app.MapPost("/api/wallpaper", async (HttpRequest request, PanelSettings settings, CancellationToken token) =>
 {
-    var file = (await request.ReadFormAsync(token)).Files.GetFile("file");
-    if (file == null || file.Length == 0 || file.Length > maxPhotoBytes)
-        return Error("请选择 8 MB 以内的图片。");
-
-    using var output = new MemoryStream((int)file.Length);
-    await file.CopyToAsync(output, token);
-    var image = ImageBytes.Create(output.ToArray());
-    if (image == null) return Error("请选择 JPG、PNG、WebP 或 GIF。");
+    var (image, error) = await ReadUploadedImage(request, token);
+    if (image == null) return Error(error!);
     settings.SetWallpaper(image);
     return Results.NoContent();
+});
+
+app.MapPost("/api/widget-images/{kind}", async (string kind, HttpRequest request, WidgetImages images,
+    CancellationToken token) =>
+{
+    if (kind is not ("image" or "gif")) return Results.NotFound();
+    var (image, error) = await ReadUploadedImage(request, token);
+    if (image == null) return Error(error!);
+    if (!WidgetImages.Supports(kind, image.Type))
+        return Error(kind == "gif" ? "请选择 GIF 文件。" : "请选择 JPG、PNG 或 WebP 图片。");
+    return Results.Ok(new { id = images.Save(image) });
 });
 
 app.MapPost("/api/lyrics/offset", async (HttpRequest request, AppleMusic player, LyricsCatalog catalog, CancellationToken token) =>
@@ -323,6 +338,17 @@ await app.WaitForShutdownAsync();
 
 static IResult ImageResult(ImageBytes? image, string? version) => image != null && version == image.Version
     ? Results.File(image.Bytes, image.Type) : Results.NotFound();
+
+static async Task<(ImageBytes? Image, string? Error)> ReadUploadedImage(HttpRequest request, CancellationToken token)
+{
+    var file = request.HasFormContentType ? (await request.ReadFormAsync(token)).Files.GetFile("file") : null;
+    if (file == null || file.Length == 0 || file.Length > maxPhotoBytes)
+        return (null, "请选择 8 MB 以内的图片。");
+    using var output = new MemoryStream((int)file.Length);
+    await file.CopyToAsync(output, token);
+    var image = ImageBytes.Create(output.ToArray());
+    return (image, image == null ? "请选择 JPG、PNG、WebP 或 GIF。" : null);
+}
 
 static IResult Error(string message, int code = 400) =>
     Results.Text(message, "text/plain; charset=utf-8", statusCode: code);

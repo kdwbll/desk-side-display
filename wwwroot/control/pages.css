@@ -42,6 +42,19 @@
 .widget-layout-tools { justify-content: space-between; gap: 5px 10px; }
 .widget-layout-tools[hidden], #page-detail .widget-layout-preview[hidden] { display: none; }
 .widget-layout-tools button { min-height: 32px; }
+.layout-pixel-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; }
+.layout-pixel-tools[hidden] { display: none; }
+.layout-pixel-tools input {
+  width: 64px;
+  padding: 5px 7px;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.layout-pixel-tools button { min-height: 32px; }
 .layout-preview-scene {
   position: absolute;
   inset: 0;
