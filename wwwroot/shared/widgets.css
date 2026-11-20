@@ -71,6 +71,26 @@
 button.widget:not(:disabled) { cursor: pointer; }
 button.widget:not(:disabled):active { border-color: var(--widget-accent); background: #ffffff19; }
 button.widget:disabled { opacity: .52; }
+.widget-shortcut { gap: .42em; }
+.widget-keycaps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: .22em;
+  max-width: 100%;
+}
+.widget-keycaps kbd {
+  padding: .22em .42em;
+  border: 1px solid #ffffff30;
+  border-radius: .36em;
+  box-shadow: 0 .12em 0 #09091060;
+  background: #ffffff12;
+  color: inherit;
+  font: 650 .83em/1.12 system-ui, sans-serif;
+  overflow-wrap: anywhere;
+}
+.widget-key-join { color: #bcb9c9; font-size: .68em; }
 .widget-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

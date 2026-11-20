@@ -7,11 +7,9 @@
   background: radial-gradient(ellipse at 92% 9%, #b2a0ee20, transparent 68%), var(--dashboard-background);
   font-size: clamp(11px, min(2.6cqw, 5.6cqh), 28px);
 }
-.dashboard header { display: flex; align-items: baseline; gap: 1em; justify-content: space-between; }
 .dashboard h1, .dashboard p { margin: 0; }
 .dashboard h1 { color: #f3effb; font-size: 1.13em; }
-#dashboard-device, #dashboard-empty { color: #ababba; font-size: .72em; }
-#dashboard-device { text-align: end; }
+#dashboard-empty { color: #ababba; font-size: .72em; }
 #dashboard-widgets { flex: 1; min-height: 0; grid-auto-rows: minmax(7.5em, 1fr); overflow: auto; }
 #dashboard-widgets:has(.widget-v2, .widget-music), #page-widgets:has(.widget-v2, .widget-music) { grid-auto-rows: max-content; }
 #dashboard-widgets, #page-widgets { touch-action: pan-y; }

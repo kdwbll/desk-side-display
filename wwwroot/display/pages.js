@@ -6,7 +6,6 @@ const phonePages = (() => {
   const grid = document.getElementById('dashboard-widgets');
   const strip = document.getElementById('page-widgets');
   const heading = document.getElementById('dashboard-name');
-  const device = document.getElementById('dashboard-device');
   const empty = document.getElementById('dashboard-empty');
   const footer = document.getElementById('page-footer');
   const indicator = document.getElementById('page-indicator');
@@ -113,8 +112,6 @@ const phonePages = (() => {
   function updateTiles() {
     const now = new Date();
     for (const tile of tiles) tile.update({ now, state, hardware, data });
-    const name = mounted?.kind === 'hardware' ? hardware?.gpuName ?? '' : '';
-    if (device.textContent !== name) device.textContent = name;
   }
 
   function navigate(delta) {

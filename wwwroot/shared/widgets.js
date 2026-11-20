@@ -77,16 +77,11 @@ window.deskWidgets = (() => {
 
   function make(widget, press, mediaControl) {
     if (widget.type === 'music') return makeMusic(widget, mediaControl);
+    if (widget.type === 'shortcut') return makeShortcut(widget, press);
     const metric = widget.type === 'metric' ? widget.metric :
       widget.type === 'custom' ? widget.manifest?.gauge : null;
-    const isButton = widget.type === 'shortcut';
-    const tile = node(isButton ? 'button' : 'article', 'widget widget-' + widget.size);
+    const tile = node('article', 'widget widget-' + widget.size);
     tile.style.setProperty('--widget-accent', widget.color);
-    if (isButton) {
-      tile.type = 'button';
-      tile.disabled = !press;
-      if (press) tile.addEventListener('click', () => press(widget, tile));
-    }
     const label = node('span', 'widget-label', widget.name);
     const value = node('span', 'widget-value');
     const detail = node('span', 'widget-detail');
@@ -116,10 +111,6 @@ window.deskWidgets = (() => {
         case 'text':
           main = widget.text;
           break;
-        case 'shortcut':
-          main = widget.keys;
-          sub = '发送到 Windows';
-          break;
         case 'custom':
           main = formatTemplate(widget.manifest.template, context);
           sub = widget.manifest.detail ? formatTemplate(widget.manifest.detail, context) : '';
@@ -135,6 +126,24 @@ window.deskWidgets = (() => {
       }
     }
     return { element: tile, update };
+  }
+
+  function makeShortcut(widget, press) {
+    const tile = node('button', 'widget widget-' + widget.size + ' widget-shortcut');
+    tile.style.setProperty('--widget-accent', widget.color);
+    tile.type = 'button';
+    tile.disabled = !press;
+    tile.setAttribute('aria-label', [widget.name, widget.keys].filter(Boolean).join(' · '));
+    if (press) tile.addEventListener('click', () => press(widget, tile));
+    const chord = node('span', 'widget-keycaps');
+    chord.setAttribute('aria-hidden', 'true');
+    const keys = (widget.keys ?? '').split('+').map(key => key.trim()).filter(Boolean);
+    chord.append(...keys.flatMap((key, index) => {
+      const cap = node('kbd', '', key);
+      return index ? [node('span', 'widget-key-join', '+'), cap] : [cap];
+    }));
+    tile.append(chord, node('span', 'widget-label', widget.name));
+    return { element: tile, update() {} };
   }
 
   function makeMusic(widget, control) {
