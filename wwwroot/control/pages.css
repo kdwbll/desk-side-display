@@ -80,6 +80,31 @@
   outline: 2px solid #b6f1e2;
   outline-offset: -2px;
 }
+.layout-guide, .layout-dimensions {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+}
+.layout-guide-x {
+  inset-block: 0;
+  border-inline-start: 1px dashed #a2ffe8;
+}
+.layout-guide-y {
+  inset-inline: 0;
+  border-block-start: 1px dashed #a2ffe8;
+}
+.layout-dimensions {
+  inset-block-start: 7px;
+  inset-inline-end: 7px;
+  padding: 3px 7px;
+  border: 1px solid #a2ffe879;
+  border-radius: 5px;
+  background: #172a28;
+  color: #e7fff8;
+  font: 600 12px/1.25 system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 .layout-handle {
   position: absolute;
   z-index: 1;

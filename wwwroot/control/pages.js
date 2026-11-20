@@ -199,7 +199,7 @@
       refreshPreview();
       save.disabled = !dirty();
     });
-    layoutTools.append(node('span', 'detail', '拖动组件移动 · 拉边框调整大小'), resetLayout);
+    layoutTools.append(node('span', 'detail', '拖动移动 · 拉边框缩放 · 按 Alt 暂停吸附'), resetLayout);
     detail.replaceChildren(props, toolbar, layoutTools, preview, ...page.widgets.map(widget => editWidget(page, widget)));
     if (page.widgets.length === 1) detail.querySelector('.page-widget-editor').open = true;
     refreshPreview();
