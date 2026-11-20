@@ -42,7 +42,7 @@
 ## 快速开始
 
 1. 在 Windows 安装 [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) 和 Apple Music 桌面客户端。下载 Windows 版 [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools)，将解压后的 `platform-tools` 文件夹放在项目的 `.tools` 目录内。
-2. 双击 [Start-DeskSideDisplay.cmd](Start-DeskSideDisplay.cmd)，打开 Windows 控制面板。
+2. 双击 [Create-Desktop-Shortcut.cmd](Create-Desktop-Shortcut.cmd)，在 Windows 桌面创建「桌面副屏」。以后双击这个图标就能打开控制面板。也可以直接运行 [Start-DeskSideDisplay.cmd](Start-DeskSideDisplay.cmd)。
 3. 在安卓手机上开启 USB 调试，通过支持数据传输的 USB 线连上电脑，并在手机上允许调试。
 4. 控制面板显示「USB 已连接」后，用**手机浏览器**访问 `http://127.0.0.1:8765/`。把手机横放，轻点页面进入全屏。随后可播放 Apple Music 看歌词，或在控制面板的「界面与小组件」添加卡片及全屏预设。
 
