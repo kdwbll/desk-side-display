@@ -5,13 +5,9 @@ const time = document.getElementById('time');
 const date = document.getElementById('date');
 const title = document.getElementById('track');
 const artist = document.getElementById('artist');
-const current = document.getElementById('current');
 const lyricStack = document.querySelector('.lyric-stack');
 const lyricView = document.getElementById('lyrics');
-const surroundingLines = [...lyricStack.querySelectorAll('[data-offset]')].map(element => ({
-  element,
-  offset: Number(element.dataset.offset)
-}));
+const lyricOffsets = [-2, -1, 0, 1, 2];
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const lyricNotes = {
   searching: '正在查找歌词…',
@@ -27,13 +23,17 @@ let state;
 let sampleTime = 0;
 let wakeLock;
 let lineKey;
-let activeIndex = -1;
+let activeIndex;
+let current;
+let lyricRows = new Map();
 let displayedSong;
+let displayedTiming;
 let displayedPosition = 0;
 let shownMode;
 let clockMinute;
 let fills = [];
 let transitions = [];
+let departingLine;
 let appearanceKey;
 
 for (const image of document.images) {
@@ -60,8 +60,10 @@ function setImage(id, url) {
 
 function refreshScreen(now) {
   const elapsed = now - sampleTime;
-  const mode = !state || (state.mode === 'lyrics' && elapsed > 5000) ? 'clock' : state.mode;
+  const defaultMode = !state || (state.mode === 'lyrics' && elapsed > 5000) ? 'clock' : state.mode;
+  const mode = phonePages.show(defaultMode, state);
   if (shownMode !== mode) {
+    stopLyricMotion();
     for (const screen of screens) screen.hidden = screen.id !== mode;
     shownMode = mode;
     displayedSong = undefined;
@@ -79,15 +81,23 @@ function refreshScreen(now) {
     }
   }
   if (mode !== 'lyrics') return;
-  const song = state.song;
+  const song = state?.song;
   const songId = song?.id ?? '';
   if (displayedSong !== songId) {
     title.textContent = song?.title ?? 'Apple Music';
     artist.textContent = song?.artist ?? '';
     displayedSong = songId;
-    activeIndex = -1;
+    activeIndex = undefined;
   }
 
+  if (!state || elapsed > 5000) {
+    if (lineKey !== 'offline') {
+      renderLyrics([], -1, '等待 Windows 连接');
+      lineKey = 'offline';
+      activeIndex = undefined;
+    }
+    return;
+  }
   const playback = Math.min(state.durationMs ?? Infinity,
     state.positionMs + (state.playing ? Math.min(elapsed, 1200) * state.rate : 0));
   const position = Math.max(0, playback + (state.lyricOffsetMs ?? 0) +
@@ -101,30 +111,60 @@ function refreshScreen(now) {
   }
   const index = low - 1;
   const line = state.lines[index];
-  const surroundings = surroundingLines.map(({ offset }) => state.lines[index + offset]?.text ?? '');
+  const surroundings = lyricOffsets.map(offset => state.lines[index + offset]?.text ?? '');
   const note = state.lines.length ? '' : lyricNotes[state.lyricsStatus] ?? '';
-  const key = JSON.stringify([song?.id, line, surroundings, note]);
+  const key = JSON.stringify([song?.id, state.lyricTimingId, index, line, surroundings, note]);
   if (lineKey !== key) {
-    const smooth = lineKey && index > 0 && index === activeIndex + 1 &&
+    const smooth = lineKey && displayedTiming === state.lyricTimingId &&
+      index >= 0 && index === activeIndex + 1 && !reducedMotion.matches &&
       position >= displayedPosition && position - displayedPosition < 480;
-    surroundingLines.forEach(({ element }, i) => { element.textContent = surroundings[i]; });
-    showCurrentLine(line, note);
-    transitions.forEach(animation => animation.cancel());
-    fitLyrics();
-    transitions = smooth && !reducedMotion.matches ? animateLines() : [];
+    const nextAt = state.lines[index + 1]?.atMs ?? Infinity;
+    const untilNextLine = (nextAt - position) / (state.rate || 1);
+    const duration = smooth ? Math.max(210, Math.min(460, untilNextLine * .86)) : 0;
+    renderLyrics(state.lines, index, note, duration);
     lineKey = key;
     activeIndex = index;
+    displayedTiming = state.lyricTimingId;
   }
   displayedPosition = position;
   updateFills(position);
 }
 
+function renderLyrics(lines, index, note, duration = 0) {
+  const previous = duration ? new Map([...lyricRows].map(([id, row]) => [id, lyricPosition(row)])) : null;
+  const exiting = previous && lyricRows.get(index - 3);
+  const exitCopy = exiting?.textContent ? exiting.cloneNode(true) : null;
+  stopLyricMotion();
+  const next = new Map();
+  for (const offset of lyricOffsets) {
+    const id = index + offset;
+    const row = lyricRows.get(id) ?? document.createElement('p');
+    const line = lines[id];
+    if (offset === 0) {
+      current = row;
+      row.id = 'current';
+      row.className = note ? 'current lyric-note' : 'current';
+      delete row.dataset.offset;
+      showCurrentLine(line, note);
+    } else {
+      row.removeAttribute('id');
+      row.className = 'adjacent' + (offset < 0 ? ' past' : '') + (Math.abs(offset) === 2 ? ' distant' : '');
+      row.dataset.offset = offset;
+      row.textContent = line?.text ?? '';
+    }
+    next.set(id, row);
+  }
+  lyricRows = next;
+  lyricStack.replaceChildren(...next.values());
+  fitLyrics();
+  if (previous) animateLyrics(previous, index, exitCopy, duration);
+}
+
 function showCurrentLine(line, note) {
   fills = [];
   current.replaceChildren();
-  current.classList.toggle('lyric-note', Boolean(note));
   if (!line?.words?.length || reducedMotion.matches) {
-    current.textContent = line?.text ?? (state.song ? note : '等待播放');
+    current.textContent = line?.text ?? (note || (state?.song ? '' : '等待播放'));
     return;
   }
   let position = 0;
@@ -143,6 +183,7 @@ function showCurrentLine(line, note) {
 }
 
 function fitLyrics() {
+  if (!current) return;
   lyricStack.style.setProperty('--lyric-scale', '1');
   for (const scale of [.91, .82, .73, .64, .55, .48, .42]) {
     if (lyricStack.scrollHeight <= lyricStack.clientHeight + 1) break;
@@ -173,18 +214,60 @@ function updateFills(position) {
   }
 }
 
-function animateLines() {
-  const options = { duration: 260, easing: 'cubic-bezier(.2,.72,.28,1)' };
-  const moves = surroundingLines.filter(({ element }) => element.textContent).map(({ element, offset }) =>
-    element.animate([
-      { transform: 'translateY(.8em)', ...(offset === 2 ? { opacity: .03 } : {}) },
-      { transform: 'translateY(0)' }
+function lyricPosition(row) {
+  const rect = row.getBoundingClientRect();
+  const computed = getComputedStyle(row);
+  const fontSize = parseFloat(computed.fontSize);
+  return {
+    rect, center: rect.top + rect.height / 2, fontSize,
+    scale: row.offsetWidth ? rect.width / row.offsetWidth : 1,
+    opacity: computed.opacity, filter: computed.filter === 'none' ? 'blur(0px)' : computed.filter
+  };
+}
+
+function animateLyrics(previous, index, exitCopy, duration) {
+  const options = { duration, easing: 'cubic-bezier(.22,.68,.3,1)' };
+  const target = new Map([...lyricRows].map(([id, row]) => [id, lyricPosition(row)]));
+  const rowSpacing = (a, b) => Math.max(18, target.get(b).center - target.get(a).center);
+  for (const [id, row] of lyricRows) {
+    if (!row.textContent) continue;
+    const end = target.get(id);
+    const start = previous.get(id);
+    const shift = start ? start.center - end.center : rowSpacing(index + 1, index + 2);
+    const scale = start ? start.scale * start.fontSize / end.fontSize : 1;
+    transitions.push(row.animate([
+      { transform: 'translateY(' + shift + 'px) scale(' + scale + ')',
+        opacity: start?.opacity ?? 0, filter: start?.filter ?? end.filter },
+      { transform: 'translateY(0) scale(1)', opacity: end.opacity, filter: end.filter }
     ], options));
-  moves.push(current.animate([
-    { transform: 'translateY(.34em)', opacity: .86 },
-    { transform: 'translateY(0)', opacity: 1 }
-  ], options));
-  return moves;
+  }
+  if (exitCopy) {
+    const { rect, opacity, filter, fontSize, scale } = previous.get(index - 3);
+    const stack = lyricStack.getBoundingClientRect();
+    exitCopy.classList.add('lyric-departing');
+    exitCopy.setAttribute('aria-hidden', 'true');
+    exitCopy.style.top = rect.top - stack.top + lyricStack.scrollTop + 'px';
+    exitCopy.style.width = rect.width / scale + 'px';
+    exitCopy.style.fontSize = fontSize * scale + 'px';
+    lyricStack.append(exitCopy);
+    departingLine = exitCopy;
+    const animation = exitCopy.animate([
+      { transform: 'translateY(0)', opacity, filter },
+      { transform: 'translateY(-' + rowSpacing(index - 2, index - 1) + 'px)', opacity: 0, filter }
+    ], options);
+    animation.onfinish = () => {
+      exitCopy.remove();
+      if (departingLine === exitCopy) departingLine = undefined;
+    };
+    transitions.push(animation);
+  }
+}
+
+function stopLyricMotion() {
+  for (const animation of transitions) animation.cancel();
+  transitions = [];
+  departingLine?.remove();
+  departingLine = undefined;
 }
 
 async function refreshState() {
@@ -219,8 +302,13 @@ async function keepAwake() {
 
 document.addEventListener('visibilitychange', keepAwake);
 reducedMotion.addEventListener('change', () => { lineKey = undefined; });
-window.addEventListener('resize', () => { if (shownMode === 'lyrics') fitLyrics(); });
-document.addEventListener('click', async () => {
+window.addEventListener('resize', () => {
+  if (shownMode !== 'lyrics') return;
+  stopLyricMotion();
+  fitLyrics();
+});
+document.addEventListener('click', async event => {
+  if (event.target.closest('button, a')) return;
   if (!document.fullscreenElement) {
     try { await document.documentElement.requestFullscreen?.(); }
     catch { /* The browser may disallow full screen. */ }

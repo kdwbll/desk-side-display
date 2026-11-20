@@ -1,5 +1,6 @@
 using System.Net;
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text;
 
 const int displayPort = 8765;
@@ -7,6 +8,7 @@ const int controlPort = 8766;
 const string controlUrl = "http://127.0.0.1:8766";
 const int maxPhotoBytes = 8 * 1024 * 1024;
 const int maxLyricOffsetMs = 10_000;
+var shortcutCapability = Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
@@ -24,12 +26,22 @@ builder.WebHost.ConfigureKestrel(options =>
 builder.Services.AddSingleton(new PanelSettings(Path.Combine(project, ".data")));
 builder.Services.AddSingleton(service => new LyricAppearanceSettings(service.GetRequiredService<PanelSettings>().DataPath));
 builder.Services.AddSingleton(service => new LyricsCatalog(service.GetRequiredService<PanelSettings>().DataPath));
+builder.Services.AddSingleton(service => new DisplayPages(service.GetRequiredService<PanelSettings>().DataPath));
+builder.Services.AddSingleton(service => new WidgetImages(service.GetRequiredService<PanelSettings>().DataPath));
+builder.Services.AddSingleton<ClipboardHistory>();
+builder.Services.AddSingleton(service => new WidgetSources(service.GetRequiredService<PanelSettings>().DataPath,
+    service.GetRequiredService<ClipboardHistory>()));
+builder.Services.AddHostedService<ClipboardFileHistoryPoller>();
+builder.Services.AddSingleton<KeyboardShortcut>();
+builder.Services.AddSingleton(new DesktopNotes(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory)));
+builder.Services.AddSingleton<HardwareMetrics>();
 builder.Services.AddSingleton<AppleMusic>();
 builder.Services.AddHostedService(service => service.GetRequiredService<AppleMusic>());
 builder.Services.AddSingleton(new UsbBridge(Path.Combine(project, ".tools", "platform-tools", "adb.exe"), displayPort));
 builder.Services.AddHostedService(service => service.GetRequiredService<UsbBridge>());
 
 var app = builder.Build();
+var widgetSources = app.Services.GetRequiredService<WidgetSources>();
 app.Use(async (context, next) =>
 {
     var port = context.Connection.LocalPort;
@@ -39,12 +51,18 @@ app.Use(async (context, next) =>
         return;
     }
 
-    if (context.Request.Method == HttpMethods.Post &&
-        (port != controlPort || context.Request.Headers.Origin != $"http://{context.Request.Host}" ||
-         context.Request.Headers["X-DeskSide-Control"] != "1"))
+    if (context.Request.Method == HttpMethods.Post)
     {
-        context.Response.StatusCode = 403;
-        return;
+        var localControl = port == controlPort && context.Request.Headers["X-DeskSide-Control"] == "1";
+        var phoneShortcut = port == displayPort && context.Request.Path.StartsWithSegments("/api/widgets") &&
+            context.Request.Headers["X-DeskSide-Shortcut"] == shortcutCapability;
+        var notificationFeed = port == controlPort && context.Request.Path == "/api/widget-notifications" &&
+            context.Request.Headers["X-DeskSide-Feed"] == widgetSources.FeedKey;
+        if (!notificationFeed && ((!localControl && !phoneShortcut) || context.Request.Headers.Origin != $"http://{context.Request.Host}"))
+        {
+            context.Response.StatusCode = 403;
+            return;
+        }
     }
     if ((context.Request.Path.Value ?? "").EndsWith(".html", StringComparison.OrdinalIgnoreCase))
     {
@@ -66,22 +84,29 @@ app.MapGet("/", (HttpContext context) =>
     return Results.File(Path.Combine(app.Environment.WebRootPath, page, "index.html"), "text/html; charset=utf-8");
 });
 
-app.MapGet("/api/state", (HttpContext context, AppleMusic player, PanelSettings settings, LyricsCatalog catalog,
-    UsbBridge usb, LyricAppearanceSettings appearance) =>
+app.MapGet("/api/state", (HttpContext context, AppleMusic player, PanelSettings settings, DisplayPages pages,
+    LyricsCatalog catalog, UsbBridge usb, LyricAppearanceSettings appearance) =>
 {
     var state = player.Read();
-    var (preferences, wallpaper) = settings.Read();
+    var (preferences, wallpaper, displayRevision) = settings.Read();
+    var availablePresets = pages.Read().Pages.Where(page => page.Kind is "clock" or "photo")
+        .Select(page => page.Id).ToArray();
+    var idle = preferences.Idle == "hardware" || availablePresets.Contains(preferences.Idle) ? preferences.Idle
+        : availablePresets.Contains("clock") ? "clock" : availablePresets.FirstOrDefault() ?? "hardware";
+    var selectedMode = preferences.Mode is "auto" or "lyrics" || availablePresets.Contains(preferences.Mode)
+        ? preferences.Mode : "auto";
     var labels = catalog.Read(state.Song, state.DurationMs);
     var calibration = catalog.ReadCalibration(state.Song, labels);
     var recentSong = state.Song != null &&
         (state.Playing || (state.Paused && DateTimeOffset.UtcNow - state.LastPlaying < TimeSpan.FromSeconds(15)));
-    var mode = preferences.Mode == "auto" ? (recentSong ? "lyrics" : preferences.Idle) : preferences.Mode;
+    var mode = selectedMode == "auto" ? (recentSong ? "lyrics" : idle) : selectedMode;
     var age = Math.Clamp((DateTimeOffset.UtcNow - state.SampledAt).TotalMilliseconds, 0, 4_000);
     double? position = state.PositionMs == null ? null : Math.Min(
         state.DurationMs ?? double.MaxValue, state.PositionMs.Value + (state.Playing ? age * state.Rate : 0));
     var control = context.Connection.LocalPort == controlPort ? new
     {
-        preferences,
+        preferences = new PanelPreferences(selectedMode, idle),
+        availablePresets,
         usb = usb.Status,
         state.Status,
         state.CanToggle,
@@ -93,10 +118,12 @@ app.MapGet("/api/state", (HttpContext context, AppleMusic player, PanelSettings 
     return Results.Ok(new
     {
         mode,
+        displayRevision,
         lyricAppearance = appearance.Read().Appearance,
         song = state.Song,
         state.Playing,
         state.Rate,
+        playback = new { state.CanToggle, state.CanPrevious, state.CanNext },
         positionMs = position,
         lyricsStatus = position == null && state.Song != null ? "no-timeline" : labels.Status,
         lyricTimingId = labels.TimingId,
@@ -109,6 +136,112 @@ app.MapGet("/api/state", (HttpContext context, AppleMusic player, PanelSettings 
         lines = position == null ? [] : labels.Lines,
         control
     });
+});
+
+app.MapGet("/api/pages", (HttpContext context, DisplayPages pages, UsbBridge usb, WidgetSources sources) =>
+{
+    var layout = pages.Read();
+    var actionsEnabled = sources.Read().Actions;
+    var capability = context.Connection.LocalPort == displayPort && (layout.ShortcutsEnabled || actionsEnabled) && usb.Status == "ready"
+        ? shortcutCapability : null;
+    var clientLayout = context.Connection.LocalPort == controlPort ? layout : layout with { WidgetLibrary = null };
+    return Results.Ok(new { layout = clientLayout, maxPages = DisplayPages.MaxPages, shortcutCapability = capability,
+        actionsEnabled, sourcesRevision = sources.Revision });
+});
+
+app.MapPost("/api/pages", (DisplayLayout proposed, DisplayPages pages) =>
+{
+    var result = pages.Save(proposed);
+    return result.Value != null ? Results.Ok(result.Value) :
+        Error(result.Error!, result.Conflict ? 409 : 400);
+});
+
+app.MapPost("/api/pages/validate-widget", (WidgetManifest manifest) =>
+{
+    var error = DisplayPages.ValidateManifest(manifest);
+    return error == null ? Results.Ok(manifest) : Error(error);
+});
+
+app.MapGet("/api/metrics", async (HardwareMetrics metrics, CancellationToken token) =>
+    Results.Ok(await metrics.ReadAsync(token)));
+
+app.MapGet("/api/widget-sources", (HttpContext context, WidgetSources sources) =>
+{
+    if (context.Connection.LocalPort != controlPort) return Results.NotFound();
+    var config = sources.Read();
+    return Results.Ok(new { config, notificationKey = config.Notifications ? sources.FeedKey : null });
+});
+
+app.MapPost("/api/widget-sources", (WidgetSourceConfig config, WidgetSources sources) =>
+{
+    var error = sources.Save(config);
+    return error == null ? Results.Ok(new { config, notificationKey = config.Notifications ? sources.FeedKey : null }) : Error(error);
+});
+
+app.MapPost("/api/widget-notifications", (WidgetNotification message, HttpContext context, WidgetSources sources) =>
+{
+    if (context.Connection.LocalPort != controlPort || context.Request.Headers["X-DeskSide-Feed"] != sources.FeedKey)
+        return Results.StatusCode(403);
+    var error = sources.Publish(message);
+    return error == null ? Results.NoContent() : Error(error);
+});
+
+app.MapGet("/api/widget-data", async (string page, HttpContext context, DisplayPages pages, WidgetSources sources,
+    UsbBridge usb, CancellationToken token) =>
+{
+    if (context.Connection.LocalPort != displayPort || usb.Status != "ready") return Results.StatusCode(403);
+    var displayPage = pages.Read().Pages.FirstOrDefault(item => item.Id == page);
+    return displayPage == null ? Results.NotFound() : Results.Ok(await sources.Sample(displayPage, token));
+});
+
+app.MapPost("/api/widgets/{id:guid}/action/{trigger}", async (Guid id, string trigger, uint? clipboardVersion, string? historyItem,
+    HttpContext context, DisplayPages pages, WidgetSources sources, UsbBridge usb, AppleMusic music,
+    KeyboardShortcut keyboard, CancellationToken token) =>
+{
+    if (context.Connection.LocalPort != displayPort || usb.Status != "ready" || !sources.Read().Actions)
+        return Results.StatusCode(403);
+    var widget = pages.Read().Pages.SelectMany(page => page.Widgets)
+        .FirstOrDefault(item => item.Id == id && item.Type == "custom" && item.Manifest?.Version == 2);
+    var action = widget == null ? null : WidgetProtocol.Action(widget.Manifest!, trigger);
+    if (action == null) return Results.NotFound();
+    var error = await sources.Act(action, music, keyboard, clipboardVersion, historyItem, token);
+    return error == null ? Results.NoContent() : Error(error, 409);
+});
+
+app.MapPost("/api/widgets/{id:guid}/media/{action}", async (Guid id, string action, HttpContext context,
+    DisplayPages pages, WidgetSources sources, UsbBridge usb, AppleMusic music) =>
+{
+    if (context.Connection.LocalPort != displayPort || usb.Status != "ready" || !sources.Read().Actions)
+        return Results.StatusCode(403);
+    if (action is not ("previous" or "toggle" or "next") ||
+        !pages.Read().Pages.SelectMany(page => page.Widgets).Any(widget => widget.Id == id && widget.Type == "music"))
+        return Results.NotFound();
+    return await music.ControlAsync(action) ? Results.NoContent() : Error("Apple Music 暂不可控制。", 409);
+});
+
+app.MapPost("/api/widgets/{id:guid}/press", (Guid id, HttpContext context, DisplayPages pages,
+    UsbBridge usb, KeyboardShortcut keyboard) =>
+{
+    var layout = pages.Read();
+    if (context.Connection.LocalPort != displayPort || usb.Status != "ready" || !layout.ShortcutsEnabled)
+        return Error("请在 Windows 面板启用手机快捷键并通过 USB 连接。", 403);
+    var widget = layout.Pages.SelectMany(page => page.Widgets)
+        .FirstOrDefault(widget => widget.Id == id && widget.Type == "shortcut");
+    if (widget == null) return Error("该快捷键组件已移除。", 404);
+    var error = keyboard.Press(widget.Keys);
+    return error == null ? Results.NoContent() : Error(error, 409);
+});
+
+app.MapPost("/api/widgets/{id:guid}/open-note", (Guid id, HttpContext context, DisplayPages pages,
+    UsbBridge usb, WidgetSources sources, DesktopNotes notes) =>
+{
+    if (context.Connection.LocalPort != displayPort || usb.Status != "ready" || !sources.Read().Actions)
+        return Error("请在 Windows 面板允许组件动作，并通过 USB 连接。", 403);
+    var widget = pages.Read().Pages.SelectMany(page => page.Widgets)
+        .FirstOrDefault(item => item.Id == id && item.Type == "text");
+    if (widget?.Text is not { } text) return Error("该便签组件已移除。", 404);
+    var error = notes.CreateAndOpen(text);
+    return error == null ? Results.NoContent() : Error(error, 409);
 });
 
 app.MapGet("/api/appearance", (HttpContext context, LyricAppearanceSettings settings) =>
@@ -133,6 +266,8 @@ app.MapPost("/api/appearance/presets/{id:guid}/{action}",
 
 app.MapGet("/media/cover", (string? v, AppleMusic player) => ImageResult(player.Read().Artwork, v));
 app.MapGet("/media/wallpaper", (string? v, PanelSettings settings) => ImageResult(settings.Read().Wallpaper, v));
+app.MapGet("/media/widgets/{id}", (string id, WidgetImages images) =>
+    images.Find(id) is { } media ? Results.File(media.Path, media.Type) : Results.NotFound());
 
 app.MapPost("/api/settings", async (HttpRequest request, PanelSettings settings, CancellationToken token) =>
 {
@@ -150,16 +285,21 @@ app.MapPost("/api/playback/{action}", async (string action, AppleMusic player) =
 
 app.MapPost("/api/wallpaper", async (HttpRequest request, PanelSettings settings, CancellationToken token) =>
 {
-    var file = (await request.ReadFormAsync(token)).Files.GetFile("file");
-    if (file == null || file.Length == 0 || file.Length > maxPhotoBytes)
-        return Error("请选择 8 MB 以内的图片。");
-
-    using var output = new MemoryStream((int)file.Length);
-    await file.CopyToAsync(output, token);
-    var image = ImageBytes.Create(output.ToArray());
-    if (image == null) return Error("请选择 JPG、PNG、WebP 或 GIF。");
+    var (image, error) = await ReadUploadedImage(request, token);
+    if (image == null) return Error(error!);
     settings.SetWallpaper(image);
     return Results.NoContent();
+});
+
+app.MapPost("/api/widget-images/{kind}", async (string kind, HttpRequest request, WidgetImages images,
+    CancellationToken token) =>
+{
+    if (kind is not ("image" or "gif")) return Results.NotFound();
+    var (image, error) = await ReadUploadedImage(request, token);
+    if (image == null) return Error(error!);
+    if (!WidgetImages.Supports(kind, image.Type))
+        return Error(kind == "gif" ? "请选择 GIF 文件。" : "请选择 JPG、PNG 或 WebP 图片。");
+    return Results.Ok(new { id = images.Save(image) });
 });
 
 app.MapPost("/api/lyrics/offset", async (HttpRequest request, AppleMusic player, LyricsCatalog catalog, CancellationToken token) =>
@@ -211,6 +351,17 @@ await app.WaitForShutdownAsync();
 
 static IResult ImageResult(ImageBytes? image, string? version) => image != null && version == image.Version
     ? Results.File(image.Bytes, image.Type) : Results.NotFound();
+
+static async Task<(ImageBytes? Image, string? Error)> ReadUploadedImage(HttpRequest request, CancellationToken token)
+{
+    var file = request.HasFormContentType ? (await request.ReadFormAsync(token)).Files.GetFile("file") : null;
+    if (file == null || file.Length == 0 || file.Length > maxPhotoBytes)
+        return (null, "请选择 8 MB 以内的图片。");
+    using var output = new MemoryStream((int)file.Length);
+    await file.CopyToAsync(output, token);
+    var image = ImageBytes.Create(output.ToArray());
+    return (image, image == null ? "请选择 JPG、PNG、WebP 或 GIF。" : null);
+}
 
 static IResult Error(string message, int code = 400) =>
     Results.Text(message, "text/plain; charset=utf-8", statusCode: code);

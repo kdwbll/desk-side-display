@@ -70,9 +70,16 @@ function render() {
     ? '本地逐字时间轴' : lyricsMessages[status.lyricsStatus];
   const lineTimed = state.lines.length > 0 && !state.lines.some(line => line.words?.length) ? '逐句高亮' : '';
   timeline.textContent = [progress, timing, lineTimed].filter(Boolean).join(' · ');
+  const presets = status.availablePresets ?? ['clock', 'photo'];
+  for (const option of idle.options) {
+    option.hidden = option.value !== 'hardware' && !presets.includes(option.value);
+    option.disabled = option.hidden;
+  }
   idle.value = status.preferences.idle;
+  photo.closest('.file-picker').hidden = !presets.includes('photo');
   for (const button of modes) {
-    button.disabled = busy;
+    button.hidden = ['clock', 'photo'].includes(button.dataset.mode) && !presets.includes(button.dataset.mode);
+    button.disabled = busy || button.hidden;
     button.setAttribute('aria-pressed', String(button.dataset.mode === status.preferences.mode));
   }
   idle.disabled = photo.disabled = busy;

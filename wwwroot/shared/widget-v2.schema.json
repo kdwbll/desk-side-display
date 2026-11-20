@@ -1,0 +1,590 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Desk Side Display Widget v2",
+  "description": "声明式手机副屏组件。把 source 绑定到 x-data-types 中的标记或 Windows 注册的 api.别名.JSON路径。文字里可以用 {{数据标记}}。剪贴板、通知、前台窗口、天气、接口以及动作需要声明相应权限并由电脑端配置。用 x-author-name 等字段保留扩展元数据。组件是纯数据。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "name",
+    "size",
+    "color"
+  ],
+  "anyOf": [
+    {
+      "required": [
+        "template"
+      ]
+    },
+    {
+      "required": [
+        "blocks"
+      ]
+    }
+  ],
+  "properties": {
+    "version": {
+      "const": 2
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 24,
+      "description": "空字符串隐藏组件名称。"
+    },
+    "size": {
+      "enum": [
+        "small",
+        "medium",
+        "large"
+      ]
+    },
+    "color": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+    },
+    "template": {
+      "type": "string",
+      "maxLength": 260
+    },
+    "detail": {
+      "type": "string",
+      "maxLength": 260
+    },
+    "gauge": {
+      "$ref": "#/$defs/source"
+    },
+    "widget": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "kind": {
+      "type": "string",
+      "maxLength": 40
+    },
+    "migratedFrom": {
+      "const": 1
+    },
+    "refreshMs": {
+      "type": "integer",
+      "minimum": 500,
+      "maximum": 60000
+    },
+    "permissions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "clipboard",
+          "notifications",
+          "window",
+          "weather",
+          "interfaces",
+          "actions"
+        ]
+      }
+    },
+    "blocks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "$ref": "#/$defs/block"
+      }
+    },
+    "empty": {
+      "type": "object",
+      "description": "所有内容块都隐藏时显示，组件标题也会隐藏。",
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "fontScale": { "type": "number", "minimum": 0.55, "maximum": 2.4 }
+      }
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "columns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "gap": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 24
+        },
+        "padding": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 28
+        },
+        "firstPresent": {
+          "type": "boolean",
+          "description": "按 blocks 顺序只显示第一个可见块，通常配合 hideWhenEmpty。"
+        },
+        "align": {
+          "enum": [
+            "start",
+            "center",
+            "end"
+          ]
+        }
+      }
+    },
+    "theme": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "light": {
+          "$ref": "#/$defs/palette"
+        },
+        "dark": {
+          "$ref": "#/$defs/palette"
+        },
+        "highContrast": {
+          "type": "boolean"
+        }
+      }
+    },
+    "motion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "fade",
+            "pulse",
+            "slide",
+            "bounce"
+          ]
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 120,
+          "maximum": 10000
+        },
+        "easing": {
+          "enum": [
+            "linear",
+            "ease-in",
+            "ease-out",
+            "ease-in-out"
+          ]
+        },
+        "loop": {
+          "type": "boolean"
+        }
+      }
+    },
+    "format": {
+      "$ref": "#/$defs/format"
+    },
+    "actions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tap": {
+          "$ref": "#/$defs/action"
+        },
+        "longPress": {
+          "$ref": "#/$defs/action"
+        },
+        "swipeLeft": {
+          "$ref": "#/$defs/action"
+        },
+        "swipeRight": {
+          "$ref": "#/$defs/action"
+        }
+      }
+    }
+  },
+  "patternProperties": {
+    "^x-[a-z0-9_-]+(?:\\.[a-z0-9_-]+)*$": {}
+  },
+  "$defs": {
+    "source": {
+      "anyOf": [
+        {
+          "enum": [
+            "time",
+            "date",
+            "time.second",
+            "time.minute",
+            "time.hour",
+            "time.dayprogress",
+            "music.title",
+            "music.artist",
+            "music.progress",
+            "music.duration",
+            "music.playing",
+            "music.positionms",
+            "music.durationms",
+            "media.cover",
+            "media.wallpaper",
+            "gpu.name",
+            "cpu.usage",
+            "cpu.temperature",
+            "gpu.usage",
+            "gpu.temperature",
+            "gpu.power",
+            "gpu.fan",
+            "gpu.clock",
+            "ram.used",
+            "ram.total",
+            "ram.usage",
+            "clipboard.text",
+            "clipboard.image",
+            "clipboard.files",
+            "clipboard.history",
+            "notification.title",
+            "notification.body",
+            "notification.app",
+            "notification.count",
+            "window.title",
+            "window.process",
+            "volume.percent",
+            "volume.muted",
+            "power.percent",
+            "power.plugged",
+            "power.charging",
+            "network.online",
+            "network.name",
+            "network.down",
+            "network.up",
+            "weather.temperature",
+            "weather.code",
+            "weather.wind",
+            "weather.humidity",
+            "weather.feels",
+            "weather.day",
+            "weather.place",
+            "weather.configured"
+          ]
+        },
+        {
+          "type": "string",
+          "pattern": "^api\\.[a-z0-9_-]+(?:\\.[a-z0-9_-]+)+$",
+          "maxLength": 96
+        }
+      ]
+    },
+    "palette": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "background": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "foreground": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "accent": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        }
+      }
+    },
+    "format": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "locale": {
+          "type": "string",
+          "maxLength": 35
+        },
+        "timeZone": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "hourCycle": {
+          "enum": [
+            "h12",
+            "h23"
+          ]
+        },
+        "dateStyle": {
+          "enum": [
+            "short",
+            "medium",
+            "long",
+            "full"
+          ]
+        },
+        "digits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4
+        },
+        "unit": {
+          "type": "string",
+          "maxLength": 12
+        }
+      }
+    },
+    "action": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "enum": [
+                "music.previous",
+                "music.toggle",
+                "music.next",
+                "refresh"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "const": "copy"
+            },
+            "value": {
+              "type": "string",
+              "maxLength": 1000,
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "const": "open-app"
+            },
+            "value": {
+              "type": "string",
+              "maxLength": 32,
+              "pattern": "^[a-z0-9][a-z0-9_-]*$"
+            }
+          }
+        }
+      ]
+    },
+    "block": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "text",
+            "value",
+            "image",
+            "files",
+            "history",
+            "weather",
+            "ring",
+            "progress",
+            "clock",
+            "button",
+            "icon"
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 260
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "icon": {
+          "enum": [
+            "clock",
+            "battery",
+            "network",
+            "volume",
+            "notification",
+            "file",
+            "image",
+            "sun",
+            "cloud",
+            "arrow",
+            "music"
+          ]
+        },
+        "fallback": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "valueType": {
+          "enum": [
+            "text",
+            "number",
+            "boolean",
+            "image",
+            "files"
+          ]
+        },
+        "maxLength": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2000
+        },
+        "span": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "rows": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "align": {
+          "enum": [
+            "start",
+            "center",
+            "end"
+          ]
+        },
+        "fontScale": {
+          "type": "number",
+          "minimum": 0.55,
+          "maximum": 2.4
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "format": {
+          "$ref": "#/$defs/format"
+        },
+        "action": {
+          "anyOf": [
+            { "$ref": "#/$defs/action" },
+            {
+              "type": "object",
+              "description": "clipboard.paste 用于当前内容块，clipboard.history.paste 用于历史列表。需要 clipboard 和 actions 权限。",
+              "additionalProperties": false,
+              "required": ["type"],
+              "properties": { "type": { "enum": ["clipboard.paste", "clipboard.history.paste"] } }
+            }
+          ]
+        },
+        "hideWhenEmpty": {
+          "type": "boolean",
+          "description": "value、image、files 或 history 没有内容时隐藏此块。"
+        },
+        "fileDisplay": {
+          "enum": ["icon", "preview"],
+          "description": "files 块的展示方式。icon 仅使用系统文件图标，preview 优先使用可用缩略图。"
+        },
+        "shape": {
+          "enum": ["card", "round", "capsule", "square"],
+          "description": "weather 块的形状。需声明 weather 权限，天气数据由系统自动绑定。"
+        }
+      }
+    }
+  },
+  "x-data-types": {
+    "time": "text",
+    "date": "text",
+    "time.second": "number",
+    "time.minute": "number",
+    "time.hour": "number",
+    "time.dayprogress": "number",
+    "music.title": "text",
+    "music.artist": "text",
+    "music.progress": "text",
+    "music.duration": "text",
+    "music.playing": "boolean",
+    "music.positionms": "number",
+    "music.durationms": "number",
+    "media.cover": "image",
+    "media.wallpaper": "image",
+    "gpu.name": "text",
+    "cpu.usage": "number",
+    "cpu.temperature": "number",
+    "gpu.usage": "number",
+    "gpu.temperature": "number",
+    "gpu.power": "number",
+    "gpu.fan": "number",
+    "gpu.clock": "number",
+    "ram.used": "number",
+    "ram.total": "number",
+    "ram.usage": "number",
+    "clipboard.text": "text",
+    "clipboard.image": "image",
+    "clipboard.files": "files",
+    "clipboard.history": "history",
+    "notification.title": "text",
+    "notification.body": "text",
+    "notification.app": "text",
+    "notification.count": "number",
+    "window.title": "text",
+    "window.process": "text",
+    "volume.percent": "number",
+    "volume.muted": "boolean",
+    "power.percent": "number",
+    "power.plugged": "boolean",
+    "power.charging": "boolean",
+    "network.online": "boolean",
+    "network.name": "text",
+    "network.down": "number",
+    "network.up": "number",
+    "weather.temperature": "number",
+    "weather.code": "number",
+    "weather.wind": "number",
+    "weather.humidity": "number",
+    "weather.feels": "number",
+    "weather.day": "boolean",
+    "weather.place": "text",
+    "weather.configured": "boolean"
+  },
+  "x-permissions": {
+    "clipboard": [
+      "clipboard.*", "clipboard.paste", "clipboard.history.paste"
+    ],
+    "notifications": [
+      "notification.*"
+    ],
+    "window": [
+      "window.*"
+    ],
+    "weather": [
+      "weather.*"
+    ],
+    "interfaces": [
+      "api.*"
+    ],
+    "actions": [
+      "actions",
+      "blocks[].action"
+    ]
+  }
+}

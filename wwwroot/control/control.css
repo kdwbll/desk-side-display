@@ -71,6 +71,7 @@ button[aria-pressed="true"] { background: var(--selected); color: var(--selected
 button:disabled, select:disabled, .file-picker:has(input:disabled) { opacity: .53; }
 :focus-visible, .file-picker:focus-within { outline: 2px solid var(--selected); outline-offset: 2px; }
 .file-picker { position: relative; display: inline-flex; align-items: center; }
+.file-picker[hidden] { display: none; }
 .file-picker input { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: inherit; }
 .file-picker:has(input:disabled) { pointer-events: none; }
 #usb, .detail, footer { color: var(--quiet); font-size: 13px; }
