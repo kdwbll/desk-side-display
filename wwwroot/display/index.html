@@ -10,11 +10,13 @@
   <link rel="stylesheet" href="/shared/widgets.css">
   <link rel="stylesheet" href="/shared/widget-v2.css">
   <link rel="stylesheet" href="/shared/widget-weather.css">
+  <link rel="stylesheet" href="/shared/widget-placement.css">
   <link rel="stylesheet" href="/display/pages.css">
   <script src="/shared/lyric-appearance.js" defer></script>
   <script src="/shared/widgets.js" defer></script>
   <script src="/shared/widget-weather.js" defer></script>
   <script src="/shared/widget-v2.js" defer></script>
+  <script src="/shared/widget-placement.js" defer></script>
   <script src="/display/pages.js" defer></script>
   <script src="/display/display.js" defer></script>
 </head>
@@ -51,6 +53,7 @@
       <div id="dashboard-widgets" class="widget-grid"></div>
       <p id="dashboard-empty" hidden>可在 Windows 控制面板添加组件</p>
     </section>
+    <div id="widget-stage" class="widget-stage" aria-label="页面组件" hidden></div>
     </div>
     <div class="widget-grid" id="page-widgets" aria-label="页面组件" hidden></div>
     <footer id="page-footer" class="page-footer" hidden>

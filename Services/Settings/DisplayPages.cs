@@ -7,7 +7,13 @@ sealed record DisplayLayout(int Revision, bool ShortcutsEnabled, DisplayPage[] P
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WidgetManifest[]? WidgetLibrary = null);
 sealed record DisplayPage(string Id, string Name, string Kind, string Color, DisplayWidget[] Widgets);
 sealed record DisplayWidget(Guid Id, string Type, string Name, string Size, string Color,
-    string? Text = null, string? Metric = null, string? Keys = null, WidgetManifest? Manifest = null);
+    string? Text = null, string? Metric = null, string? Keys = null, WidgetManifest? Manifest = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WidgetPlacement? Placement = null);
+sealed record WidgetPlacement(int X, int Y, int Width, int Height)
+{
+    public bool IsValid() => Width is >= 55 and <= 1000 && Height is >= 65 and <= 1000 &&
+        X >= 0 && Y >= 0 && X <= 1000 - Width && Y <= 1000 - Height;
+}
 
 sealed class DisplayPages
 {
@@ -102,6 +108,8 @@ sealed class DisplayPages
                 if (widget == null || widget.Id == Guid.Empty || !widgetIds.Add(widget.Id) ||
                     !DisplayName(widget.Name) || !Size(widget.Size) || !Color(widget.Color))
                     return "组件的名称、尺寸、颜色或标识无效。";
+                if (widget.Placement?.IsValid() == false)
+                    return "组件位置及尺寸必须在界面范围内。";
                 var error = widget.Type switch
                 {
                     "clock" or "date" or "music" => null,

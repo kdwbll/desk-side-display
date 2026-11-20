@@ -5,6 +5,7 @@ const phonePages = (() => {
   const dashboard = document.getElementById('dashboard');
   const grid = document.getElementById('dashboard-widgets');
   const strip = document.getElementById('page-widgets');
+  const stage = document.getElementById('widget-stage');
   const heading = document.getElementById('dashboard-name');
   const empty = document.getElementById('dashboard-empty');
   const footer = document.getElementById('page-footer');
@@ -72,10 +73,15 @@ const phonePages = (() => {
       ? widgetV2.make(widget, capability && actionsEnabled ? runAction : null)
       : deskWidgets.make(widget, capability && shortcutsEnabled ? press : null,
         capability && actionsEnabled ? controlMusic : null));
-    (expanded ? grid : strip).replaceChildren(...tiles.map(tile => tile.element));
-    (expanded ? strip : grid).replaceChildren();
+    const free = widgetPlacement.isFree(page);
+    const rects = free ? widgetPlacement.resolve(page) : null;
+    stage.replaceChildren(...(free ? tiles.map((tile, i) => widgetPlacement.frame(tile.element, rects[i])) : []));
+    grid.replaceChildren(...(!free && expanded ? tiles.map(tile => tile.element) : []));
+    strip.replaceChildren(...(!free && !expanded ? tiles.map(tile => tile.element) : []));
+    stage.hidden = !free;
+    grid.hidden = free;
     grid.scrollTop = strip.scrollTop = 0;
-    strip.hidden = expanded || tiles.length === 0;
+    strip.hidden = free || expanded || tiles.length === 0;
     empty.hidden = tiles.length !== 0;
     const pageName = page.name.trim();
     const pageNumber = '第 ' + (pages.indexOf(page) + 1) + ' 页';

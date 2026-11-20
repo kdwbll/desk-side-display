@@ -41,6 +41,8 @@
   let original;
   let selected;
   let preview;
+  let layoutTools;
+  let resetLayout;
   let replacing;
   let bundled = [];
   let pageLimit;
@@ -112,11 +114,16 @@
     const page = currentPage();
     preview.style.setProperty('--preview-background', page.color);
     preview.hidden = page.widgets.length === 0;
-    preview.replaceChildren(...page.widgets.map(widget => {
+    layoutTools.hidden = preview.hidden;
+    resetLayout.disabled = !widgetPlacement.isFree(page);
+    widgetLayoutEditor.render(preview, page, widget => {
       const tile = widget.manifest?.version === 2 ? widgetV2.make(widget) : make(widget);
       tile.update(previewData);
       return tile.element;
-    }));
+    }, () => {
+      resetLayout.disabled = false;
+      save.disabled = !dirty();
+    });
   }
 
   function customChoices() {
@@ -184,9 +191,16 @@
     });
     add.disabled = type.disabled = page.widgets.length >= 8;
     toolbar.append(type, add, node('span', 'detail', page.widgets.length + ' / 8'));
-    preview = node('div', 'widget-grid');
+    preview = node('div', 'widget-layout-preview');
     preview.setAttribute('aria-label', '组件预览（硬件数字为示例）');
-    detail.replaceChildren(props, toolbar, preview, ...page.widgets.map(widget => editWidget(page, widget)));
+    layoutTools = node('div', 'actions widget-layout-tools');
+    resetLayout = button('恢复自动布局', () => {
+      for (const widget of page.widgets) delete widget.placement;
+      refreshPreview();
+      save.disabled = !dirty();
+    });
+    layoutTools.append(node('span', 'detail', '拖动组件移动 · 拉边框调整大小'), resetLayout);
+    detail.replaceChildren(props, toolbar, layoutTools, preview, ...page.widgets.map(widget => editWidget(page, widget)));
     if (page.widgets.length === 1) detail.querySelector('.page-widget-editor').open = true;
     refreshPreview();
     permission.checked = draft.shortcutsEnabled;
@@ -198,12 +212,16 @@
     const box = node('details', 'page-widget-editor');
     const description = () => [widget.name.trim(), kinds[widget.type]].filter(Boolean).join(' · ');
     const summary = node('summary', '', description());
+    summary.addEventListener('click', () => widgetLayoutEditor.select(preview, widget.id));
     const fields = node('div', 'widget-fields');
     field(fields, '名称', widget.name, value => {
       widget.name = value;
       summary.textContent = description();
     }, { max: 24 });
-    field(fields, '尺寸', widget.size, value => { widget.size = value; }, { entries: sizes });
+    field(fields, '尺寸', widget.size, value => {
+      widget.size = value;
+      if (widget.placement) widget.placement = widgetPlacement.preset(widget.placement, value);
+    }, { entries: sizes });
     field(fields, '颜色', widget.color, value => { widget.color = value; }, { type: 'color' });
     if (widget.type === 'text') field(fields, '内容', widget.text, value => { widget.text = value; }, { max: 160 });
     if (widget.type === 'metric') field(fields, '读数', widget.metric, value => { widget.metric = value; }, {

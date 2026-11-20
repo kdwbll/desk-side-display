@@ -27,13 +27,85 @@
 .page-widget-editor summary, #widget-import summary { cursor: pointer; font-weight: 600; }
 .page-widget-editor .widget-fields { margin-top: 9px; }
 .page-widget-editor button { margin-top: 8px; }
-#page-detail .widget-grid {
+#page-detail .widget-layout-preview {
+  position: relative;
+  aspect-ratio: 20 / 9;
   margin-block: 12px;
-  padding: 10px;
-  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 9px;
   color: white;
   background: var(--preview-background, #1e2030);
-  font-size: clamp(10px, 2vw, 16px);
+  font-size: 14px;
+  container-type: inline-size;
+}
+.widget-layout-tools { justify-content: space-between; gap: 5px 10px; }
+.widget-layout-tools[hidden], #page-detail .widget-layout-preview[hidden] { display: none; }
+.widget-layout-tools button { min-height: 32px; }
+.layout-preview-scene {
+  position: absolute;
+  inset: 0;
+  padding: 2.5% 3.5%;
+  opacity: .56;
+  font-size: clamp(10px, 3.4cqw, 22px);
+  background: radial-gradient(ellipse at 10% 0%, #a489bf22, transparent 70%);
+  pointer-events: none;
+  user-select: none;
+}
+.layout-preview-clock {
+  display: grid;
+  place-content: center;
+  text-align: center;
+  gap: .34em;
+}
+.layout-preview-clock strong { font-size: 4.2em; font-weight: 500; }
+.layout-preview-clock span { font-size: .8em; }
+.layout-preview-lyrics { display: grid; align-items: center; grid-template-columns: 24% minmax(0, 1fr); text-align: center; }
+.layout-preview-lyrics strong { font-size: 1.55em; }
+.layout-preview-cover {
+  aspect-ratio: 1;
+  border-radius: .28em;
+  background: linear-gradient(146deg, #8278af, #604960, #b7806e);
+}
+.layout-preview-photo { background: linear-gradient(148deg, #375671, #80606c, #bc9a82); }
+.widget-layout-preview .widget-placed {
+  cursor: move;
+  touch-action: none;
+  outline: 1px dashed #f5f3ff70;
+  outline-offset: -1px;
+}
+.widget-layout-preview .widget-placed > .widget { pointer-events: none; overflow: hidden; }
+.widget-layout-preview .widget-placed.selected, .widget-layout-preview .widget-placed:focus-visible {
+  z-index: 2;
+  outline: 2px solid #b6f1e2;
+  outline-offset: -2px;
+}
+.layout-handle {
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  opacity: 0;
+}
+.layout-handle::after {
+  width: 6px;
+  height: 6px;
+  border: 1px solid #165e54;
+  border-radius: 2px;
+  background: #d0fff3;
+  content: '';
+}
+.widget-placed:hover .layout-handle, .widget-placed.selected .layout-handle { opacity: 1; }
+.layout-handle-nw { top: 0; left: 0; cursor: nwse-resize; }
+.layout-handle-n { top: 0; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+.layout-handle-ne { top: 0; right: 0; cursor: nesw-resize; }
+.layout-handle-e { top: 50%; right: 0; transform: translateY(-50%); cursor: ew-resize; }
+.layout-handle-se { bottom: 0; right: 0; cursor: nwse-resize; }
+.layout-handle-s { bottom: 0; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+.layout-handle-sw { bottom: 0; left: 0; cursor: nesw-resize; }
+.layout-handle-w { top: 50%; left: 0; transform: translateY(-50%); cursor: ew-resize; }
 }
 .widget-toolbar, #widget-import { margin-block: 12px; }
 #widget-import .actions { margin: 8px 0; }
