@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="在真实的桌面照片上体验安卓副屏。试试横滑、调歌词样式、编辑卡片和点击快捷键。">
+  <title>桌面副屏 · 在线体验</title>
+  <link rel="stylesheet" href="demo.css">
+  <script type="module" src="demo.js"></script>
+</head>
+<body>
+  <main>
+    <header class="site-heading">
+      <h1>桌面副屏<span>在线体验</span></h1>
+      <div class="site-links">
+        <span class="silent">静音演示</span>
+        <a href="https://github.com/kdwbll/desk-side-display">GitHub</a>
+      </div>
+    </header>
+    <section aria-label="手机副屏" class="stage">
+      <div class="scene">
+        <div class="photo">
+          <img src="assets/desk-setup.jpg" width="1860" height="846"
+            alt="USB 连接的手机横放在显示器下方的支架上">
+          <div class="handset">
+            <iframe title="可交互的手机屏幕" id="phone" allow="fullscreen 'none'; screen-wake-lock 'none'"></iframe>
+          </div>
+        </div>
+      </div>
+      <div class="navigation">
+        <div class="navigation-hint">
+          <output id="visible-page" aria-live="polite">歌词</output>
+          <span>点击屏幕体验卡片</span>
+        </div>
+        <div class="navigation-buttons">
+          <button id="previous" type="button" aria-label="向右滑，上一页" title="上一页" disabled><span aria-hidden="true">‹</span></button>
+          <button id="next" type="button" aria-label="向左滑，下一页" title="下一页" disabled><span aria-hidden="true">›</span></button>
+        </div>
+      </div>
+      <p class="action-toast" id="demo-action" role="status" hidden></p>
+    </section>
+    <section class="controls" aria-labelledby="controls-title">
+      <div class="control-heading">
+        <h2 id="controls-title">控制面板</h2>
+        <div class="control-tabs" role="tablist" aria-label="控制面板栏目">
+          <button id="tab-display" type="button" role="tab" aria-controls="active-panel" aria-selected="true" data-panel="display-heading">显示</button>
+          <button id="tab-appearance" type="button" role="tab" aria-controls="active-panel" aria-selected="false" tabindex="-1" data-panel="appearance-heading">歌词外观</button>
+          <button id="tab-music" type="button" role="tab" aria-controls="active-panel" aria-selected="false" tabindex="-1" data-panel="music-heading">模拟播放</button>
+          <button id="tab-pages" type="button" role="tab" aria-controls="active-panel" aria-selected="false" tabindex="-1" data-panel="pages-heading">界面与小组件</button>
+        </div>
+      </div>
+      <div id="active-panel" role="tabpanel" aria-labelledby="tab-display">
+        <iframe id="panel" title="桌面副屏控制面板"></iframe>
+      </div>
+    </section>
+    <footer>
+      <span>设置保留在本次体验中。快捷键、便签和剪贴板操作均在网页内模拟。</span>
+      <a href="https://github.com/kdwbll/desk-side-display/blob/main/%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E.md">在自己的电脑上使用</a>
+    </footer>
+  </main>
+</body>
+</html>
