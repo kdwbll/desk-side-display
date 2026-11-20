@@ -79,12 +79,18 @@ main { display: flex; flex-direction: column; position: relative; touch-action: 
   max-height: 94cqh;
   gap: calc(clamp(5px, 1.45cqw, 3.8cqh) * var(--lyric-scale));
   overflow: auto;
+  overflow-anchor: none;
   touch-action: pan-y;
   scrollbar-width: none;
 }
 .lyric-stack > p {
   margin: 0;
   overflow-wrap: anywhere;
+}
+.lyric-departing {
+  position: absolute;
+  justify-self: center;
+  pointer-events: none;
 }
 .current { font-size: max(15px, calc(clamp(17px, 6.25cqw, 17cqh) * var(--lyric-scale))); font-weight: 650; }
 .current.lyric-note { color: #cfb4ae; font-size: clamp(13px, 2.5cqw, 7cqh); font-weight: 500; }
