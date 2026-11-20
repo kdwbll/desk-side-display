@@ -9,6 +9,15 @@ window.widgetLayoutEditor = (() => {
   ];
   const snapDistance = 6;
   let activeId;
+  const sizeObserver = new ResizeObserver(([{ target }]) => {
+    const dimensions = target.parentElement?.querySelector('.layout-dimensions');
+    if (dimensions && target.classList.contains('selected')) measure(target, dimensions);
+  });
+
+  function measure(frame, dimensions) {
+    const { width, height } = frame.getBoundingClientRect();
+    dimensions.textContent = Math.round(width) + ' × ' + Math.round(height) + ' px';
+  }
 
   function background(page) {
     const layer = node('div', 'layout-preview-scene layout-preview-' + page.kind);
@@ -31,7 +40,11 @@ window.widgetLayoutEditor = (() => {
     }
     const dimensions = stage.querySelector('.layout-dimensions');
     dimensions.hidden = !selected;
-    dimensions.textContent = selected?.dataset.dimensions ?? '';
+    sizeObserver.disconnect();
+    if (selected) {
+      measure(selected, dimensions);
+      sizeObserver.observe(selected, { box: 'border-box' });
+    }
   }
 
   function snapAxis(rect, drag, axis, radius) {
@@ -87,13 +100,8 @@ window.widgetLayoutEditor = (() => {
       return guide;
     });
     const dimensions = node('output', 'layout-dimensions');
-    dimensions.title = '宽 × 高，以画布的 1000 × 1000 布局单位计';
+    dimensions.title = '当前预览中的宽 × 高（像素）';
     dimensions.setAttribute('aria-live', 'off');
-    const place = (frame, rect) => {
-      widgetPlacement.place(frame, rect);
-      frame.dataset.dimensions = rect.width + ' × ' + rect.height;
-      if (frame.dataset.widgetId === activeId) dimensions.textContent = frame.dataset.dimensions;
-    };
     const store = (index, next) => {
       if (Object.keys(next).every(key => next[key] === rects[index][key])) return;
       rects[index] = next;
@@ -104,7 +112,6 @@ window.widgetLayoutEditor = (() => {
       const frame = widgetPlacement.frame(tileFor(widget), rects[index]);
       frames.push(frame);
       frame.dataset.widgetId = widget.id;
-      place(frame, rects[index]);
       frame.tabIndex = 0;
       frame.setAttribute('role', 'group');
       frame.setAttribute('aria-label', (widget.name.trim() || '组件 ' + (index + 1)) + '，方向键移动，Shift 加方向键调整尺寸');
@@ -124,7 +131,7 @@ window.widgetLayoutEditor = (() => {
         const step = event.altKey ? 2 : 12;
         const edge = event.shiftKey ? (x ? 'e' : 's') : '';
         const next = widgetPlacement.adjust(rects[index], x * step, y * step, edge, obstacles());
-        place(frame, next);
+        widgetPlacement.place(frame, next);
         store(index, next);
       });
       let drag;
@@ -163,21 +170,21 @@ window.widgetLayoutEditor = (() => {
         return next;
       };
       frame.addEventListener('pointermove', event => {
-        if (event.pointerId === drag?.pointer) place(frame, position(event));
+        if (event.pointerId === drag?.pointer) widgetPlacement.place(frame, position(event));
       });
       frame.addEventListener('pointerup', event => {
         if (event.pointerId !== drag?.pointer) return;
         const next = position(event);
         drag = undefined;
         for (const guide of guides) guide.hidden = true;
-        place(frame, next);
+        widgetPlacement.place(frame, next);
         store(index, next);
       });
       frame.addEventListener('lostpointercapture', event => {
         if (event.pointerId !== drag?.pointer) return;
         drag = undefined;
         for (const guide of guides) guide.hidden = true;
-        place(frame, rects[index]);
+        widgetPlacement.place(frame, rects[index]);
       });
     }
     stage.replaceChildren(background(page), ...frames, ...guides, dimensions);
