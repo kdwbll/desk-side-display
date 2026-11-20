@@ -82,14 +82,19 @@ sealed class WidgetSources : IDisposable
 
     public async Task<Dictionary<string, object?>> Sample(DisplayPage page, CancellationToken token)
     {
-        var requested = page.Widgets.Where(widget => widget.Type == "custom" && widget.Manifest?.Version == 2)
-            .SelectMany(widget => WidgetProtocol.References(widget.Manifest!))
+        var manifests = page.Widgets.Where(widget => widget.Type == "custom" && widget.Manifest?.Version == 2)
+            .Select(widget => widget.Manifest!).ToArray();
+        var requested = manifests.SelectMany(WidgetProtocol.References)
             .Distinct(StringComparer.Ordinal).ToHashSet(StringComparer.Ordinal);
         var values = new Dictionary<string, object?>(StringComparer.Ordinal);
         var options = Read();
         var groups = requested.Select(WidgetProtocol.Group).ToHashSet(StringComparer.Ordinal);
         if (groups.Contains("clipboard") && options.Clipboard)
-            Add(values, await WidgetWindows.ClipboardValues(requested));
+        {
+            var thumbnails = manifests.SelectMany(manifest => manifest.Blocks ?? []).Any(block =>
+                block.Kind == "files" && block.Source == "clipboard.files" && block.FileDisplay != "icon");
+            Add(values, await WidgetWindows.ClipboardValues(requested, thumbnails));
+        }
         if (groups.Contains("window") && options.Window) Add(values, WidgetWindows.Foreground());
         if (groups.Contains("power")) Add(values, WidgetWindows.Power());
         if (groups.Contains("volume")) Add(values, WidgetWindows.Volume());
@@ -125,10 +130,11 @@ sealed class WidgetSources : IDisposable
             foreach (var (prefix, bindings, data) in await Task.WhenAll(jobs))
                 foreach (var binding in bindings) values[binding] = Extract(data, binding[prefix.Length..].Split('.'));
         }
-        return values.Where(item => requested.Contains(item.Key)).ToDictionary(StringComparer.Ordinal);
+        return values.Where(item => requested.Contains(item.Key) || item.Key == "clipboard.sequence")
+            .ToDictionary(StringComparer.Ordinal);
     }
 
-    public async Task<string?> Act(WidgetAction action, AppleMusic music)
+    public async Task<string?> Act(WidgetAction action, AppleMusic music, KeyboardShortcut keyboard, uint? clipboardVersion)
     {
         WidgetSourceConfig options;
         lock (gate)
@@ -140,6 +146,13 @@ sealed class WidgetSources : IDisposable
             lastAction = Stopwatch.GetTimestamp();
         }
         if (action.Type == "refresh") return null;
+        if (action.Type == "clipboard.paste")
+        {
+            if (!options.Clipboard) return "请先在 Windows 面板允许读取剪贴板。";
+            if (clipboardVersion is not > 0 || clipboardVersion != WidgetWindows.ClipboardVersion)
+                return "剪贴板内容已更新，请等手机刷新后重试。";
+            return keyboard.Press("Ctrl+V");
+        }
         if (action.Type == "copy")
             return await WidgetWindows.Copy(action.Value!) ? null : "Windows 剪贴板暂不可用。";
         if (action.Type.StartsWith("music.", StringComparison.Ordinal))

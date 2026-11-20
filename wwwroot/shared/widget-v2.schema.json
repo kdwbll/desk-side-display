@@ -91,6 +91,18 @@
         "$ref": "#/$defs/block"
       }
     },
+    "empty": {
+      "type": "object",
+      "description": "所有内容块都隐藏时显示，组件标题也会隐藏。",
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "fontScale": { "type": "number", "minimum": 0.55, "maximum": 2.4 }
+      }
+    },
     "layout": {
       "type": "object",
       "additionalProperties": false,
@@ -109,6 +121,10 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 28
+        },
+        "firstPresent": {
+          "type": "boolean",
+          "description": "按 blocks 顺序只显示第一个可见块，通常配合 hideWhenEmpty。"
         },
         "align": {
           "enum": [
@@ -461,7 +477,24 @@
           "$ref": "#/$defs/format"
         },
         "action": {
-          "$ref": "#/$defs/action"
+          "anyOf": [
+            { "$ref": "#/$defs/action" },
+            {
+              "type": "object",
+              "description": "只可绑定 clipboard.text 的 value、clipboard.image 的 image 或 clipboard.files 的 files。需要 clipboard 和 actions 权限。",
+              "additionalProperties": false,
+              "required": ["type"],
+              "properties": { "type": { "const": "clipboard.paste" } }
+            }
+          ]
+        },
+        "hideWhenEmpty": {
+          "type": "boolean",
+          "description": "value、image 或 files 没有内容时隐藏此块。"
+        },
+        "fileDisplay": {
+          "enum": ["icon", "preview"],
+          "description": "files 块的展示方式。icon 仅使用系统文件图标，preview 优先使用可用缩略图。"
         }
       }
     }
@@ -517,7 +550,7 @@
   },
   "x-permissions": {
     "clipboard": [
-      "clipboard.*"
+      "clipboard.*", "clipboard.paste"
     ],
     "notifications": [
       "notification.*"

@@ -139,6 +139,23 @@ window.widgetV2 = (() => {
     if (block.label && block.kind !== 'button') box.append(label);
     const line = node('span', 'widget-v2-value');
     const expected = { image: 'image', files: 'files', ring: 'number', progress: 'number' }[block.kind] ?? block.valueType;
+    const paste = execute && block.action?.type === 'clipboard.paste';
+    let clipboardVersion;
+
+    function pasteButton(name) {
+      const control = node('button', 'widget-v2-paste');
+      control.type = 'button';
+      control.setAttribute('aria-label', name);
+      control.addEventListener('click', () => {
+        if (clipboardVersion) execute('button-' + index, clipboardVersion);
+      });
+      return control;
+    }
+
+    function bindClipboard(context) {
+      clipboardVersion = context.data?.['clipboard.sequence'];
+    }
+
     if (block.kind === 'button') {
       const control = node('button', 'widget-v2-button');
       control.type = 'button';
@@ -163,33 +180,57 @@ window.widgetV2 = (() => {
     }
     if (block.kind === 'image') {
       const image = node('img', 'widget-v2-image');
-      box.append(image, line);
+      const button = paste ? pasteButton('粘贴剪贴板图片') : null;
+      if (button) {
+        button.append(image);
+        box.append(button, line);
+      } else box.append(image, line);
       return { box, update(context) {
         updateLabel(context);
         image.alt = label.textContent || '组件图片';
-        line.hidden = setMedia(image, typed(raw(block.source, context, format), expected));
+        const present = setMedia(image, typed(raw(block.source, context, format), expected));
+        line.hidden = present;
+        if (button) {
+          bindClipboard(context);
+          button.hidden = !present;
+          button.disabled = !clipboardVersion;
+        }
         setText(line, fallback);
+        return present;
       } };
     }
     if (block.kind === 'files') {
       const list = node('ul', 'widget-v2-files');
       let previous;
+      let previousVersion;
       box.append(list, line);
       return { box, update(context) {
         updateLabel(context);
         const files = typed(raw(block.source, context, format), expected);
-        line.hidden = !!files?.length;
+        const present = !!files?.length;
+        line.hidden = present;
         setText(line, fallback);
-        if (files === previous) return;
+        if (paste) bindClipboard(context);
+        const version = block.source === 'clipboard.files' ? context.data?.['clipboard.sequence'] : undefined;
+        if (files === previous || (present && version && version === previousVersion)) return present;
         previous = files;
+        previousVersion = version;
         list.replaceChildren(...(files ?? []).slice(0, 6).map(file => {
           const item = node('li');
+          const button = paste ? pasteButton((file.name ?? '文件') + '，粘贴当前剪贴板') : null;
+          if (button) {
+            button.disabled = !clipboardVersion;
+            item.append(button);
+          }
+          const container = button ?? item;
           const image = node('img');
           image.alt = '';
-          item.append(setMedia(image, file.thumbnail ?? file.icon) ? image : node('span', '', icons.file));
-          item.append(node('span', '', short(file.name ?? '文件', block.maxLength ?? 40)));
+          const icon = block.fileDisplay === 'icon' ? file.icon : file.thumbnail ?? file.icon;
+          container.append(setMedia(image, icon) ? image : node('span', '', icons.file));
+          container.append(node('span', '', short(file.name ?? '文件', block.maxLength ?? 40)));
           return item;
         }));
+        return present;
       } };
     }
     if (block.kind === 'icon') {
@@ -217,12 +258,24 @@ window.widgetV2 = (() => {
         setText(line, short(formatted, block.maxLength ?? 50));
       } };
     }
-    box.append(line);
+    const button = paste ? pasteButton('粘贴剪贴板文本') : null;
+    if (button) {
+      button.append(line);
+      box.append(button);
+    } else box.append(line);
     return { box, update(context) {
       updateLabel(context);
-      const value = block.source ? display(typed(raw(block.source, context, format), expected), block.source, format, fallback) :
-        text(block.text, context, format, fallback);
+      const source = typed(raw(block.source, context, format), expected);
+      const value = block.source === 'clipboard.text' && typeof source === 'string'
+        ? source.trim() ? source : '空白文本'
+        : block.source ? display(source, block.source, format, fallback) : text(block.text, context, format, fallback);
+      const present = block.source ? source != null && source !== '' : value !== '';
+      if (button) {
+        bindClipboard(context);
+        button.disabled = !clipboardVersion || !present;
+      }
       setText(line, short(value || fallback, block.maxLength ?? 160));
+      return present;
     } };
 
     function updateLabel(context) {
@@ -234,7 +287,7 @@ window.widgetV2 = (() => {
     const manifest = widget.manifest;
     const tile = node('article', 'widget widget-' + widget.size + ' widget-v2');
     tile.style.setProperty('--widget-accent', widget.color);
-    const execute = run ? trigger => run(widget, trigger) : null;
+    const execute = run ? (trigger, clipboardVersion) => run(widget, trigger, clipboardVersion) : null;
     if (execute && manifest.actions) actionsByTile.set(tile, { actions: manifest.actions, execute });
     const title = node('span', 'widget-label', widget.name);
     tile.append(title);
@@ -261,6 +314,14 @@ window.widgetV2 = (() => {
     const parts = blocks.map((block, index) => makeBlock(block, index, manifest.format ?? {}, execute));
     grid.append(...parts.map(part => part.box));
     tile.append(grid);
+    const empty = manifest.empty ? node('p', 'widget-v2-empty', manifest.empty.text) : null;
+    if (empty) {
+      if (manifest.empty.color) empty.style.color = manifest.empty.color;
+      empty.style.opacity = manifest.empty.opacity ?? .52;
+      empty.style.fontSize = (manifest.empty.fontScale ?? .76) + 'em';
+      empty.hidden = true;
+      tile.append(empty);
+    }
     if (references(manifest).some(key => key.startsWith('weather.'))) {
       const credit = node('a', 'widget-v2-credit', '天气数据 · Open-Meteo');
       credit.href = 'https://open-meteo.com/';
@@ -289,7 +350,20 @@ window.widgetV2 = (() => {
       tile.animate(frames[motion.type], { duration: motion.durationMs ?? 600, easing: motion.easing ?? 'ease-out',
         iterations: motion.loop ? Infinity : 1 });
     }
-    return { element: tile, update: context => parts.forEach(part => part.update({ ...context, now: context.now ?? new Date() })) };
+    return { element: tile, update(context) {
+      const frame = { ...context, now: context.now ?? new Date() };
+      let visible = false;
+      parts.forEach((part, index) => {
+        const present = part.update(frame);
+        const show = (!blocks[index].hideWhenEmpty || present !== false) && (!layout.firstPresent || !visible);
+        part.box.hidden = !show;
+        visible ||= show;
+      });
+      if (empty) {
+        empty.hidden = visible;
+        title.hidden = grid.hidden = !visible;
+      }
+    } };
   }
 
   function gesture(origin, trigger) {

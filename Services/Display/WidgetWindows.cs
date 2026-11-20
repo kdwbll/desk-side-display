@@ -23,19 +23,27 @@ static class WidgetWindows
     private static readonly object NetworkGate = new();
     private static (string Id, long ReadingAt, long Received, long Sent, double? Down, double? Up)? previousNetwork;
 
-    public static Task<Dictionary<string, object?>> ClipboardValues(HashSet<string> requested) =>
+    public static uint ClipboardVersion => GetClipboardSequenceNumber();
+
+    public static Task<Dictionary<string, object?>> ClipboardValues(HashSet<string> requested, bool includeThumbnails) =>
         InClipboard(() =>
         {
+            var version = ClipboardVersion;
             var values = new Dictionary<string, object?>();
-            if (requested.Contains("clipboard.text") && Clipboard.ContainsText())
-                values["clipboard.text"] = Limit(Clipboard.GetText(), 2048);
+            if (requested.Contains("clipboard.text") && Clipboard.ContainsText() && Clipboard.GetText() is { Length: > 0 } text)
+                values["clipboard.text"] = Limit(text, 2048);
             if (requested.Contains("clipboard.image") && Clipboard.ContainsImage())
             {
                 using var image = Clipboard.GetImage();
-                if (image != null) values["clipboard.image"] = Thumbnail(image);
+                if (image != null && Thumbnail(image) is string thumbnail) values["clipboard.image"] = thumbnail;
             }
             if (requested.Contains("clipboard.files") && Clipboard.ContainsFileDropList())
-                values["clipboard.files"] = Clipboard.GetFileDropList().Cast<string>().Take(6).Select(FileItem).ToArray();
+            {
+                var files = Clipboard.GetFileDropList().Cast<string>().Take(6).Select(file => FileItem(file, includeThumbnails)).ToArray();
+                if (files.Length > 0) values["clipboard.files"] = files;
+            }
+            if (version != ClipboardVersion) return new();
+            if (version != 0 && values.Count > 0) values["clipboard.sequence"] = version;
             return values;
         }, new());
 
@@ -58,7 +66,7 @@ static class WidgetWindows
         return result.Task;
     }
 
-    private static ClipboardFile FileItem(string path)
+    private static ClipboardFile FileItem(string path, bool includeThumbnail)
     {
         var name = Limit(Path.GetFileName(path), 140);
         if (name.Length == 0) name = "文件";
@@ -70,7 +78,8 @@ static class WidgetWindows
                 var info = new FileInfo(path);
                 if (info.Exists)
                 {
-                    if (info.Length <= 4 * 1024 * 1024 && info.Extension.ToLowerInvariant() is ".png" or ".jpg" or ".jpeg" or ".bmp" or ".gif")
+                    if (includeThumbnail && info.Length <= 4 * 1024 * 1024 &&
+                        info.Extension.ToLowerInvariant() is ".png" or ".jpg" or ".jpeg" or ".bmp" or ".gif")
                     {
                         using var image = Image.FromFile(path);
                         thumbnail = Thumbnail(image);
@@ -187,6 +196,7 @@ static class WidgetWindows
     private sealed record ClipboardFile(string Name, string? Icon, string? Thumbnail);
 
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] private static extern uint GetClipboardSequenceNumber();
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int GetWindowText(IntPtr window, StringBuilder text, int length);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);

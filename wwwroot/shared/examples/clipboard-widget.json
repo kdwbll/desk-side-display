@@ -1,0 +1,47 @@
+{
+  "version": 2,
+  "widget": "desk.clipboard",
+  "kind": "clipboard",
+  "name": "剪贴板",
+  "size": "large",
+  "color": "#b8c9f2",
+  "permissions": ["clipboard", "actions"],
+  "refreshMs": 850,
+  "layout": {
+    "columns": 1,
+    "gap": 8,
+    "padding": 14,
+    "align": "start",
+    "firstPresent": true
+  },
+  "empty": {
+    "text": "暂无内容",
+    "color": "#a5abb7",
+    "opacity": 0.52,
+    "fontScale": 0.72
+  },
+  "blocks": [
+    {
+      "kind": "files",
+      "source": "clipboard.files",
+      "fileDisplay": "icon",
+      "hideWhenEmpty": true,
+      "maxLength": 92,
+      "action": { "type": "clipboard.paste" }
+    },
+    {
+      "kind": "image",
+      "source": "clipboard.image",
+      "hideWhenEmpty": true,
+      "action": { "type": "clipboard.paste" }
+    },
+    {
+      "kind": "value",
+      "source": "clipboard.text",
+      "valueType": "text",
+      "hideWhenEmpty": true,
+      "maxLength": 1000,
+      "action": { "type": "clipboard.paste" }
+    }
+  ]
+}

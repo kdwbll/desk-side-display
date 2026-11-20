@@ -14,21 +14,26 @@ sealed record WidgetManifest(int Version, string Name, string Size, string Color
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WidgetTheme? Theme = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WidgetMotion? Motion = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WidgetFormat? Format = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Dictionary<string, WidgetAction>? Actions = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Dictionary<string, WidgetAction>? Actions = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WidgetEmpty? Empty = null)
 {
     [JsonExtensionData] public Dictionary<string, JsonElement>? Extensions { get; init; }
     [JsonIgnore] public bool IsV1 => Widget == null && Kind == null && MigratedFrom == null && RefreshMs == null &&
         Permissions == null && Blocks == null && Layout == null && Theme == null && Motion == null &&
-        Format == null && Actions == null && Extensions is not { Count: > 0 };
+        Format == null && Actions == null && Empty == null && Extensions is not { Count: > 0 };
 }
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 sealed record WidgetBlock(string Kind, string? Source = null, string? Text = null, string? Label = null,
     string? Icon = null, string? Fallback = null, string? ValueType = null, int? MaxLength = null,
     int? Span = null, int? Rows = null, string? Align = null, double? FontScale = null, double? Min = null,
-    double? Max = null, WidgetFormat? Format = null, WidgetAction? Action = null);
+    double? Max = null, WidgetFormat? Format = null, WidgetAction? Action = null,
+    bool? HideWhenEmpty = null, string? FileDisplay = null);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-sealed record WidgetLayout(int? Columns = null, int? Gap = null, int? Padding = null, string? Align = null);
+sealed record WidgetLayout(int? Columns = null, int? Gap = null, int? Padding = null, string? Align = null,
+    bool? FirstPresent = null);
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+sealed record WidgetEmpty(string Text, string? Color = null, double? Opacity = null, double? FontScale = null);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 sealed record WidgetTheme(WidgetPalette? Light = null, WidgetPalette? Dark = null, bool HighContrast = false);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
@@ -84,7 +89,7 @@ static class WidgetProtocol
             permits.Distinct().Count() != permits.Length || permits.Any(item => !Permissions.Contains(item))))
             return "组件权限列表无效。";
         if (!ValidLayout(manifest.Layout) || !ValidTheme(manifest.Theme) ||
-            !ValidMotion(manifest.Motion) || !ValidFormat(manifest.Format))
+            !ValidMotion(manifest.Motion) || !ValidFormat(manifest.Format) || !ValidEmpty(manifest.Empty))
             return "组件的布局、主题、动效或格式无效。";
         if (manifest.Blocks is { Length: > 12 } || (manifest.Blocks is not { Length: > 0 } && string.IsNullOrWhiteSpace(manifest.Template)))
             return "请提供模板或 1–12 个布局块。";
@@ -102,7 +107,8 @@ static class WidgetProtocol
             if (permission != null && manifest.Permissions?.Contains(permission) != true)
                 return $"数据 {source} 需要声明 {permission} 权限。";
         }
-        if (manifest.Actions?.Any(item => !Triggers.Contains(item.Key) || !ValidAction(item.Value)) == true ||
+        if (manifest.Actions?.Any(item => !Triggers.Contains(item.Key) || !ValidAction(item.Value) ||
+            item.Value.Type == "clipboard.paste") == true ||
             (Actions(manifest).Any() && manifest.Permissions?.Contains("actions") != true))
             return "动作类型无效，或缺少 actions 权限声明。";
         return null;
@@ -153,7 +159,11 @@ static class WidgetProtocol
             !ValidFormat(block.Format) || (block.Min is double min && !double.IsFinite(min)) ||
             (block.Max is double max && !double.IsFinite(max)) ||
             (block.Min != null && block.Max != null && block.Min >= block.Max) ||
-            (block.Source != null && !Known(block.Source)) || (block.Kind != "button" && block.Action != null))
+            (block.Source != null && !Known(block.Source)) ||
+            (block.FileDisplay != null && (block.Kind != "files" || block.FileDisplay is not ("icon" or "preview"))))
+            return false;
+        if (block.Action != null && (!ValidAction(block.Action) ||
+            (block.Action.Type == "clipboard.paste" ? !ClipboardContent(block) : block.Kind != "button")))
             return false;
         var expected = block.Kind switch
         {
@@ -171,11 +181,20 @@ static class WidgetProtocol
 
     private static bool ValidAction(WidgetAction? action) => action?.Type switch
     {
-        "music.previous" or "music.toggle" or "music.next" or "refresh" => action.Value == null,
+        "music.previous" or "music.toggle" or "music.next" or "refresh" or "clipboard.paste" => action.Value == null,
         "copy" => !string.IsNullOrWhiteSpace(action.Value) && action.Value.Length <= 1000,
         "open-app" => action.Value is { Length: <= 32 } && ReferencePattern.IsMatch(action.Value) && !action.Value.Contains('.'),
         _ => false
     };
+
+    private static bool ClipboardContent(WidgetBlock block) => (block.Kind, block.Source) is
+        ("value", "clipboard.text") or ("image", "clipboard.image") or ("files", "clipboard.files");
+
+    private static bool ValidEmpty(WidgetEmpty? empty) => empty == null ||
+        (!string.IsNullOrWhiteSpace(empty.Text) && empty.Text.Length <= 80 &&
+         (empty.Color == null || Color.IsMatch(empty.Color)) &&
+         (empty.Opacity == null || (double.IsFinite(empty.Opacity.Value) && empty.Opacity is >= 0 and <= 1)) &&
+         (empty.FontScale == null || (double.IsFinite(empty.FontScale.Value) && empty.FontScale is >= .55 and <= 2.4)));
 
     private static bool ValidTemplate(string? value, int limit)
     {

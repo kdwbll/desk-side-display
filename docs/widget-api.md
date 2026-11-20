@@ -71,6 +71,14 @@
 
 `button` 布局块也可加 `action`。动作包括上一首/暂停切换/下一首、刷新、复制文字，以及 `{"type":"open-app","value":"notepad"}`。打开应用使用控制面板注册的本机 EXE 别名。组件声明的滑动动作只在从该卡片开始时生效，其他区域沿用左右滑切页。长按约 650 毫秒后松开触发。
 
+## 剪贴板示例
+
+[剪贴板组件 JSON](../wwwroot/shared/examples/clipboard-widget.json)包含文件、图片和文本三种内容。文件只显示图标和名称，为同一份剪贴板提供的多种格式按文件、图片、文字的顺序选择。没有可显示的内容时，组件在卡片中央显示半透明「暂无内容」。
+
+在「组件数据源与权限」开启剪贴板及组件动作后，点击预览内容可把当前 Windows 剪贴板粘贴到电脑焦点所在的应用。多文件作为剪贴板上的整组文件粘贴，具体效果取决于目标应用支持的格式。粘贴校验显示时的剪贴板版本，内容变化时请等手机刷新后再点击。
+
+`fileDisplay: "icon"` 可给文件块关闭缩略图，`hideWhenEmpty` 可隐藏空内容块，`layout.firstPresent` 可按顺序选择第一个可见块，`empty` 定义全空时的提示。 `clipboard.paste` 可放在 `clipboard.text` 的 value 块、`clipboard.image` 的 image 块和 `clipboard.files` 的 files 块。组件需声明 `clipboard` 和 `actions`。
+
 ## 通知桥
 
 开启「接收本机通知桥的推送」，点「复制通知桥连接信息」即可将本机地址、临时请求头和 JSON 结构交给自己的提醒程序或通知桥。把有权共享的通知通过 `POST /api/widget-notifications` 发给桌面副屏，标题键为 `title`，可选 `body`、`app`。便携版使用这个本机接口接收通知，Windows 通知中心的读取由有相应权限的外部桥接程序负责。连接密钥在服务启动时生成，勿把密钥放进组件 JSON 或发给 AI。

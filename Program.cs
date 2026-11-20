@@ -179,8 +179,9 @@ app.MapGet("/api/widget-data", async (string page, HttpContext context, DisplayP
     return displayPage == null ? Results.NotFound() : Results.Ok(await sources.Sample(displayPage, token));
 });
 
-app.MapPost("/api/widgets/{id:guid}/action/{trigger}", async (Guid id, string trigger, HttpContext context,
-    DisplayPages pages, WidgetSources sources, UsbBridge usb, AppleMusic music) =>
+app.MapPost("/api/widgets/{id:guid}/action/{trigger}", async (Guid id, string trigger, uint? clipboardVersion,
+    HttpContext context, DisplayPages pages, WidgetSources sources, UsbBridge usb, AppleMusic music,
+    KeyboardShortcut keyboard) =>
 {
     if (context.Connection.LocalPort != displayPort || usb.Status != "ready" || !sources.Read().Actions)
         return Results.StatusCode(403);
@@ -188,7 +189,7 @@ app.MapPost("/api/widgets/{id:guid}/action/{trigger}", async (Guid id, string tr
         .FirstOrDefault(item => item.Id == id && item.Type == "custom" && item.Manifest?.Version == 2);
     var action = widget == null ? null : WidgetProtocol.Action(widget.Manifest!, trigger);
     if (action == null) return Results.NotFound();
-    var error = await sources.Act(action, music);
+    var error = await sources.Act(action, music, keyboard, clipboardVersion);
     return error == null ? Results.NoContent() : Error(error, 409);
 });
 

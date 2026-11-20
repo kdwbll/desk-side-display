@@ -44,6 +44,29 @@
 .widget-v2-files { margin: 0; padding: 0; list-style: none; text-align: start; }
 .widget-v2-files li { display: flex; align-items: center; gap: .35em; margin: .25em 0; }
 .widget-v2-files img { inline-size: 1.4em; block-size: 1.4em; object-fit: contain; }
+.widget-v2-paste {
+  display: block;
+  width: 100%;
+  padding: .36em .55em;
+  border: 1px solid #8885;
+  border-radius: .55em;
+  background: #8881;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.widget-v2-paste:not(:disabled) { cursor: pointer; }
+.widget-v2-paste:focus-visible { outline: 2px solid var(--widget-line); outline-offset: -2px; }
+.widget-v2-files .widget-v2-paste { display: flex; align-items: center; gap: .35em; }
+.widget-v2-empty {
+  display: grid;
+  place-items: center;
+  min-height: 4.2em;
+  margin: 0;
+  text-align: center;
+}
 .widget-v2-button {
   min-height: 30px;
   width: 100%;
