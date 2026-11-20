@@ -1,0 +1,126 @@
+:root {
+  color-scheme: dark;
+  background: #141719;
+  color: #f3eeea;
+  font: 16px/1.5 "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { width: min(1140px, 100%); margin-inline: auto; padding: 24px clamp(12px, 3vw, 28px); }
+button, a { -webkit-tap-highlight-color: transparent; }
+button { font: inherit; }
+a { color: #e8c6a2; text-underline-offset: .22em; }
+button:focus-visible, a:focus-visible { outline: 2px solid #efc398; outline-offset: 3px; }
+.site-heading, .site-links, .navigation, .control-heading, footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+}
+.site-heading { margin-bottom: 14px; }
+h1, h2 { margin: 0; line-height: 1.2; }
+h1 { font-size: clamp(23px, 3.2vw, 33px); letter-spacing: -.025em; }
+h1 span { margin-left: .7em; font-size: .51em; font-weight: 500; color: #c4b9b1; white-space: nowrap; }
+.site-links { font-size: .88rem; gap: 14px; white-space: nowrap; }
+.silent { color: #ceb7a6; }
+.stage {
+  position: relative;
+  border: 1px solid #383431;
+  border-radius: 14px;
+  background: #1e2023;
+  overflow: clip;
+}
+.scene { overflow: hidden; background: #241f1e; }
+.photo { position: relative; }
+.photo img { display: block; width: 100%; height: auto; }
+.handset {
+  position: absolute;
+  inset: 16.55% 21.25% 28.1% 21.88%;
+  border-radius: 4.75% / 10%;
+  overflow: hidden;
+  background: #241f2c;
+  isolation: isolate;
+}
+.handset iframe { display: block; width: 100%; height: 100%; border: 0; }
+.handset::after {
+  content: "";
+  position: absolute;
+  inset-inline-end: .65%;
+  top: 50.55%;
+  width: 1.65%;
+  aspect-ratio: 1;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, #31262a 23%, #130f13 45%, #625244 67%, #30282d 76%);
+  pointer-events: none;
+}
+.navigation { min-height: 54px; padding: 5px 14px; border-top: 1px solid #3c3430; }
+.navigation-hint { display: flex; flex-wrap: wrap; align-items: center; gap: 0 12px; font-size: .875rem; }
+.navigation-hint output { color: #f2d5b9; font-weight: 600; }
+.navigation-hint span { color: #bdb7b1; }
+.navigation-buttons { display: flex; gap: 8px; }
+.navigation button {
+  width: 48px;
+  min-height: 42px;
+  padding: 0 0 4px;
+  border: 1px solid #51453e;
+  border-radius: 8px;
+  color: #ffe2c7;
+  background: #302923;
+  cursor: pointer;
+  font-size: 1.85rem;
+  line-height: 1;
+}
+.navigation button:hover { background: #48362c; }
+.navigation button:disabled { opacity: .45; cursor: default; }
+.action-toast {
+  position: absolute;
+  z-index: 2;
+  bottom: 68px;
+  left: 50%;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  transform: translateX(-50%);
+  padding: .66rem .95rem;
+  background: #261f20f5;
+  color: #ffebdc;
+  border: 1px solid #906b54;
+  border-radius: .65rem;
+  text-align: center;
+  margin: 0;
+  pointer-events: none;
+}
+.controls {
+  margin-top: 16px;
+  border: 1px solid #383431;
+  border-radius: 13px;
+  background: #1c1e21;
+}
+.control-heading { justify-content: start; padding: 10px 14px; border-bottom: 1px solid #373232; }
+.control-heading h2 { font-size: 1.05rem; white-space: nowrap; }
+.control-tabs { display: flex; flex-wrap: wrap; gap: 5px; }
+.control-tabs button {
+  padding: 6px 11px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #ddd4cc;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: .9rem;
+}
+.control-tabs button:hover { background: #302b28; }
+.control-tabs button[aria-selected="true"] { background: #3a2c24; border-color: #715541; color: #ffe0c3; }
+#panel { display: block; width: 100%; height: 158px; border: 0; }
+footer { align-items: baseline; flex-wrap: wrap; padding: 16px 1px 4px; color: #bdb7b1; font-size: .86rem; }
+@media (max-width: 670px) {
+  main { padding-top: 16px; }
+  .photo { width: 156%; margin-inline: -28%; }
+  .control-heading { flex-wrap: wrap; gap: 7px 14px; }
+  .control-tabs { gap: 3px; }
+  .control-tabs button { padding-inline: 8px; }
+}
+@media (max-width: 360px) {
+  .site-links { gap: 7px; }
+  h1 span { margin-left: .4em; }
+}

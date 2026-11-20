@@ -2,11 +2,13 @@
 
 用 USB 把闲置的安卓手机变成横屏桌面摆件。Windows 上播放 Apple Music 时，手机显示专辑封面和同步歌词。平时可以滑到时钟、相框、硬件监控，或自己排版的卡片页面。
 
-[使用说明](使用说明.md) · [参与贡献](CONTRIBUTING.md) · [MIT 许可证](LICENSE)
+[在线体验](https://kdwbll.github.io/desk-side-display/) · [使用说明](使用说明.md) · [参与贡献](CONTRIBUTING.md) · [MIT 许可证](LICENSE)
 
 ![通过 USB 连接的安卓手机横放在显示器下方的支架上，屏幕显示项目的逐字歌词演示](docs/screenshots/desk-setup.jpg)
 
 桌面布置实拍，手机屏幕替换为项目的演示画面。
+
+打开在线体验，可直接点击照片里的手机屏幕，在下方控制面板切页、播放或调整歌词外观。演示音乐静音，快捷键和便签只在网页内模拟。
 
 ## 手机上能看到什么
 
@@ -61,6 +63,7 @@
 | `wwwroot/display/` | Android 横屏显示页 |
 | `wwwroot/shared/` | 两个页面共用的组件、布局和歌词样式 |
 | `docs/screenshots/` | 手机实拍与控制面板的演示截图 |
+| `demo/` | GitHub Pages 在线体验和静态构建脚本 |
 
 本机设置、相框、卡片媒体和歌词保存在 `.data/`，ADB 工具放在 `.tools/`。这些目录由 Git 忽略。
 
