@@ -197,7 +197,7 @@
       const widget = manifest
         ? { id: crypto.randomUUID(), type: 'custom', name: manifest.name, size: manifest.size, color: manifest.color, manifest }
         : { id: crypto.randomUUID(), type: key, name: kinds[key], size: 'small', color: '#82d9ce' };
-      if (['image', 'gif', 'emoji', 'clock'].includes(key)) widget.name = '';
+      if (['image', 'gif', 'emoji', 'clock', 'shortcut'].includes(key)) widget.name = '';
       if (key === 'emoji') widget.text = '✨';
       if (key === 'text') widget.text = '写点什么';
       if (key === 'metric') widget.metric = 'cpu.usage';

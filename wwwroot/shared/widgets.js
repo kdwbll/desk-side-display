@@ -162,7 +162,9 @@ window.deskWidgets = (() => {
     tile.style.setProperty('--widget-accent', widget.color);
     tile.type = 'button';
     tile.disabled = !press;
-    tile.setAttribute('aria-label', [widget.name.trim(), widget.keys].filter(Boolean).join(' · ') || '快捷键');
+    const name = widget.name.trim();
+    const caption = name === '键盘快捷键' ? '' : name;
+    tile.setAttribute('aria-label', [caption, widget.keys].filter(Boolean).join(' · ') || '快捷键');
     if (press) tile.addEventListener('click', () => press(widget, tile));
     const chord = node('span', 'widget-keycaps');
     chord.setAttribute('aria-hidden', 'true');
@@ -172,7 +174,7 @@ window.deskWidgets = (() => {
       return index ? [node('span', 'widget-key-join', '+'), cap] : [cap];
     }));
     tile.append(chord);
-    if (widget.name.trim()) tile.append(node('span', 'widget-label', widget.name));
+    if (caption) tile.append(node('span', 'widget-label', caption));
     return { element: tile, update() {} };
   }
 
