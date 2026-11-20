@@ -37,7 +37,7 @@
 }
 .widget-toolbar, #widget-import { margin-block: 12px; }
 #widget-import .actions { margin: 8px 0; }
-#widget-import textarea {
+#widget-import textarea, #widget-sources textarea {
   display: block;
   width: 100%;
   margin: 4px 0 8px;
@@ -49,6 +49,11 @@
   resize: vertical;
 }
 #widget-import a { color: var(--selected); }
+#widget-sources { margin-top: 14px; }
+#widget-sources summary { cursor: pointer; font-weight: 600; }
+#widget-source-fields { border: 0; margin: 10px 0 0; padding: 0; min-width: 0; }
+#widget-source-fields > label { display: block; margin-bottom: 6px; }
+#widget-source-fields input[type=number] { width: 6em; border: 1px solid var(--line); border-radius: 5px; padding: 4px; }
 .shortcut-permission { display: flex; align-items: baseline; gap: 5px; margin-block: 12px; }
 .page-save { margin-top: 10px; }
 #pages-status { margin: 8px 0 0; }

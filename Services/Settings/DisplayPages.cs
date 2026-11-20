@@ -1,15 +1,10 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
 sealed record DisplayLayout(int Revision, bool ShortcutsEnabled, DisplayPage[] Pages);
 sealed record DisplayPage(string Id, string Name, string Kind, string Color, DisplayWidget[] Widgets);
 sealed record DisplayWidget(Guid Id, string Type, string Name, string Size, string Color,
     string? Text = null, string? Metric = null, string? Keys = null, WidgetManifest? Manifest = null);
-
-[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-sealed record WidgetManifest(int Version, string Name, string Size, string Color, string Template,
-    string? Detail = null, string? Gauge = null);
 
 sealed class DisplayPages
 {
@@ -31,7 +26,7 @@ sealed class DisplayPages
     public DisplayPages(string dataPath)
     {
         path = Path.Combine(dataPath, "display-pages.json");
-        if (!File.Exists(path) || new FileInfo(path).Length > 64 * 1024) return;
+        if (!File.Exists(path) || new FileInfo(path).Length > 1024 * 1024) return;
         try
         {
             var saved = JsonSerializer.Deserialize<DisplayLayout>(File.ReadAllBytes(path), Json);
@@ -54,7 +49,9 @@ sealed class DisplayPages
             var error = Validate(next);
             if (error != null) return (null, error, false);
             var updated = next with { Revision = layout.Revision + 1 };
-            PanelSettings.Save(path, JsonSerializer.SerializeToUtf8Bytes(updated, Json));
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(updated, Json);
+            if (bytes.Length > 1024 * 1024) return (null, "界面配置总大小超过 1 MB。", false);
+            PanelSettings.Save(path, bytes);
             layout = updated;
             return (updated, null, false);
         }
@@ -99,9 +96,11 @@ sealed class DisplayPages
 
     internal static string? ValidateManifest(WidgetManifest? manifest)
     {
-        if (manifest == null || manifest.Version != 1 || !Named(manifest.Name, 24) ||
+        if (manifest == null || manifest.Version is not (1 or 2) || !Named(manifest.Name, 24) ||
             !Size(manifest.Size) || !Color(manifest.Color))
             return "自定义组件的版本、名称、尺寸或颜色无效。";
+        if (manifest.Version == 2) return WidgetProtocol.Validate(manifest);
+        if (!manifest.IsV1) return "v1 仅支持模板、补充文字和硬件圆环。";
         if (!Template(manifest.Template, 120) || (manifest.Detail != null && !Template(manifest.Detail, 160)))
             return "自定义组件文字过长，或使用了规范里没有的数据标记。";
         return manifest.Gauge == null || Metrics.Contains(manifest.Gauge) ? null : "自定义组件的仪表指标无效。";

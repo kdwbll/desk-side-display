@@ -13,8 +13,10 @@
     clock: '时钟', date: '日期', music: '正在播放', text: '便签', metric: '硬件仪表', shortcut: '键盘快捷键', custom: '自定义'
   };
   const example = {
-    version: 1, name: '我的电脑', size: 'medium', color: '#7de8c8', template: '内存 {{ram.used}}',
-    detail: 'CPU {{cpu.usage}} · GPU {{gpu.temperature}}', gauge: 'ram.usage'
+    version: 2, widget: 'world-clock', kind: 'clock', name: '世界时钟', size: 'medium', color: '#7de8c8',
+    format: { locale: 'zh-CN', timeZone: 'Asia/Shanghai', hourCycle: 'h23' },
+    layout: { columns: 2, gap: 10 },
+    blocks: [{ kind: 'clock' }, { kind: 'text', text: '{{time}}\n{{date}}' }]
   };
   const previewData = {
     state: { song: { title: '窗外有风', artist: '桌面副屏演示' }, positionMs: 65000, durationMs: 188000 },
@@ -35,6 +37,7 @@
   let original;
   let selected;
   let preview;
+  let replacing;
 
   const currentPage = () => draft.pages.find(page => page.id === selected);
   const dirty = () => JSON.stringify(draft) !== original;
@@ -103,7 +106,7 @@
     preview.style.setProperty('--preview-background', page.color);
     preview.hidden = page.widgets.length === 0;
     preview.replaceChildren(...page.widgets.map(widget => {
-      const tile = make(widget);
+      const tile = widget.manifest?.version === 2 ? widgetV2.make(widget) : make(widget);
       tile.update(previewData);
       return tile.element;
     }));
@@ -148,7 +151,7 @@
     refreshPreview();
     permission.checked = draft.shortcutsEnabled;
     save.disabled = !dirty();
-    $('widget-import-add').disabled = page.widgets.length >= 8;
+    $('widget-import-add').disabled = page.widgets.length >= 8 && !replacing;
   }
 
   function editWidget(page, widget) {
@@ -181,7 +184,7 @@
       }
       updatePreset();
     }
-    if (widget.type === 'custom') {
+    if (widget.type === 'custom' && widget.manifest.version === 1) {
       field(fields, '主文字模板', widget.manifest.template, value => { widget.manifest.template = value; }, { max: 120 });
       field(fields, '补充文字', widget.manifest.detail ?? '', value => {
         widget.manifest.detail = value || null;
@@ -190,6 +193,16 @@
         entries: [['', '无'], ...Object.entries(metrics).map(([id, info]) => [id, info[0]])]
       });
     }
+    if (widget.type === 'custom') fields.append(button('编辑组件 JSON', () => {
+      replacing = { id: widget.id, page: page.id };
+      const manifest = { ...widget.manifest, name: widget.name, color: widget.color, size: widget.size };
+      $('widget-manifest').value = JSON.stringify(exportManifest(manifest), null, 2);
+      $('widget-import').open = true;
+      $('widget-import-add').textContent = '校验并替换组件';
+      $('widget-import-add').disabled = false;
+      $('widget-import-cancel').hidden = false;
+      $('widget-manifest').focus();
+    }));
     box.append(summary, fields, button('移除组件', () => {
       page.widgets = page.widgets.filter(item => item.id !== widget.id);
       render();
@@ -238,30 +251,55 @@
     finally { editor.disabled = false; }
   });
   $('widget-import-add').addEventListener('click', async () => {
-    if (!draft || currentPage().widgets.length >= 8) return;
+    if (!draft || (!replacing && currentPage().widgets.length >= 8)) return;
     const input = $('widget-manifest');
     editor.disabled = true;
     try {
       const parsed = JSON.parse(input.value);
       const manifest = await send('/api/pages/validate-widget', JSON.stringify(parsed));
       const { name, size, color } = manifest;
-      currentPage().widgets.push({ id: crypto.randomUUID(), type: 'custom', name, size, color, manifest });
+      if (replacing) {
+        const existing = draft.pages.find(page => page.id === replacing.page)?.widgets.find(widget => widget.id === replacing.id);
+        if (!existing) throw Error('要替换的组件已移除。');
+        Object.assign(existing, { name, size, color, manifest });
+        selected = replacing.page;
+      } else {
+        currentPage().widgets.push({ id: crypto.randomUUID(), type: 'custom', name, size, color, manifest });
+      }
+      resetImport();
       input.value = '';
       render();
       status.textContent = '组件已校验并添加。保存界面后在手机显示。';
     } catch (error) { status.textContent = error instanceof SyntaxError ? '请粘贴完整的 JSON 对象。' : error.message; }
     finally { editor.disabled = false; }
   });
+  function resetImport() {
+    replacing = undefined;
+    $('widget-import-add').textContent = '校验并添加到本页';
+    $('widget-import-cancel').hidden = true;
+    $('widget-import-add').disabled = (currentPage()?.widgets.length ?? 8) >= 8;
+  }
+  function exportManifest(value) {
+    if (Array.isArray(value)) return value.map(exportManifest);
+    if (value === null || typeof value !== 'object') return value;
+    return Object.fromEntries(Object.entries(value)
+      .filter(([key, part]) => part != null || key.startsWith('x-'))
+      .map(([key, part]) => [key, key.startsWith('x-') ? part : exportManifest(part)]));
+  }
+  $('widget-import-cancel').addEventListener('click', () => {
+    resetImport();
+    $('widget-manifest').value = '';
+  });
   $('copy-widget-prompt').addEventListener('click', async () => {
     try {
-      const response = await fetch('/shared/widget-v1.schema.json', { signal: AbortSignal.timeout(3500) });
+      const response = await fetch('/shared/widget-v2.schema.json', { signal: AbortSignal.timeout(3500) });
       if (!response.ok) throw Error();
       const schema = await response.text();
       const prompt = [
         '请为「桌面副屏」生成一个兼容组件。用途：[填写你想显示的内容]。只输出一个 JSON 对象，遵守下列 Schema。',
-        '可在 template 和 detail 中使用 {{time}}、{{date}}、{{music.title}}、{{music.artist}}、',
-        '{{music.progress}}、{{music.duration}}、{{gpu.name}}，也可以使用 Schema 中 gauge 的任一指标作为 {{指标}}。',
-        '数据读数自动附带单位，缺值显示 —。禁止添加 HTML、脚本、命令或未声明的字段。',
+        '使用 blocks 声明布局块，source 绑定数据，文字内允许 {{数据标记}}。时钟圆环可绑定 time.second。',
+        '私有数据须声明对应权限。外部 API 使用 Windows 注册的 api.<别名>.<JSON 路径>，组件只引用别名。',
+        '绝不放入私人数据或令牌。只用声明式数据、动作和动效。x- 字段用作命名空间元数据。',
         '例子：' + JSON.stringify(example), 'JSON Schema：', schema
       ].join('\n');
       await navigator.clipboard.writeText(prompt);

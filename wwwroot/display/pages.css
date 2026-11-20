@@ -13,6 +13,7 @@
 #dashboard-device, #dashboard-empty { color: #ababba; font-size: .72em; }
 #dashboard-device { text-align: end; }
 #dashboard-widgets { flex: 1; min-height: 0; grid-auto-rows: minmax(7.5em, 1fr); overflow: auto; }
+#dashboard-widgets:has(.widget-v2), #page-widgets:has(.widget-v2) { grid-auto-rows: max-content; }
 #dashboard-widgets, #page-widgets { touch-action: pan-y; }
 #dashboard-empty { margin: auto; }
 #page-widgets {

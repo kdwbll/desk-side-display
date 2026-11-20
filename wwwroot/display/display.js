@@ -234,7 +234,7 @@ document.addEventListener('visibilitychange', keepAwake);
 reducedMotion.addEventListener('change', () => { lineKey = undefined; });
 window.addEventListener('resize', () => { if (shownMode === 'lyrics') fitLyrics(); });
 document.addEventListener('click', async event => {
-  if (event.target.closest('button')) return;
+  if (event.target.closest('button, a')) return;
   if (!document.fullscreenElement) {
     try { await document.documentElement.requestFullscreen?.(); }
     catch { /* The browser may disallow full screen. */ }

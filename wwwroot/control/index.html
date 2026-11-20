@@ -7,12 +7,15 @@
   <link rel="stylesheet" href="/control/control.css">
   <link rel="stylesheet" href="/shared/lyric-appearance.css">
   <link rel="stylesheet" href="/shared/widgets.css">
+  <link rel="stylesheet" href="/shared/widget-v2.css">
   <link rel="stylesheet" href="/control/pages.css">
   <script src="/control/control.js" defer></script>
   <script src="/shared/lyric-appearance.js" defer></script>
   <script src="/control/appearance-control.js" defer></script>
   <script src="/shared/widgets.js" defer></script>
+  <script src="/shared/widget-v2.js" defer></script>
   <script src="/control/pages.js" defer></script>
+  <script src="/control/widget-sources.js" defer></script>
 </head>
 <body>
   <main>
@@ -54,11 +57,13 @@
           <summary>导入 AI 自定义组件</summary>
           <div class="actions">
             <button id="copy-widget-prompt" type="button">复制 AI 提示词</button>
-            <a href="/shared/widget-v1.schema.json" download>下载 JSON 规范</a>
+            <a href="/shared/widget-v2.schema.json" download>下载 v2 规范</a>
+            <a href="/shared/widget-v1.schema.json" download>v1 规范</a>
           </div>
           <label for="widget-manifest">粘贴组件 JSON</label>
-          <textarea id="widget-manifest" rows="5" maxlength="4096" spellcheck="false"></textarea>
+          <textarea id="widget-manifest" rows="7" maxlength="32000" spellcheck="false"></textarea>
           <button id="widget-import-add" type="button">校验并添加到本页</button>
+          <button id="widget-import-cancel" type="button" hidden>取消替换</button>
         </details>
         <label class="shortcut-permission"><input type="checkbox" id="page-shortcuts"> 允许通过 USB 发送已配置的 Windows 快捷键</label>
         <div class="actions page-save">
@@ -67,6 +72,30 @@
         </div>
       </fieldset>
       <p id="pages-status" class="detail" role="status"></p>
+      <details id="widget-sources">
+        <summary>组件数据源与权限</summary>
+        <fieldset id="widget-source-fields" disabled>
+          <label><input id="source-clipboard" type="checkbox"> 向 USB 副屏提供已绑定的剪贴板内容</label>
+          <label><input id="source-window" type="checkbox"> 提供前台窗口标题和进程名</label>
+          <label><input id="source-notifications" type="checkbox"> 接收本机通知桥的推送</label>
+          <label><input id="source-actions" type="checkbox"> 允许 USB 副屏执行已配置的自定义组件动作</label>
+          <div class="actions">
+            <label>天气纬度 <input id="source-latitude" type="number" step="any" min="-90" max="90"></label>
+            <label>天气经度 <input id="source-longitude" type="number" step="any" min="-180" max="180"></label>
+          </div>
+          <p class="detail">填写经纬度后，天气组件会使用 <a href="https://open-meteo.com/en/terms" target="_blank" rel="noopener noreferrer">Open-Meteo 的非商业免费 API</a>。商用可注册自己的天气 JSON 接口。</p>
+          <label for="source-interfaces">自定义 JSON 接口</label>
+          <textarea id="source-interfaces" rows="3" maxlength="6000" spellcheck="false"
+            placeholder='[{"id":"desk","url":"http://127.0.0.1:9000/status","refreshMs":10000}]'></textarea>
+          <label for="source-apps">Windows 应用别名</label>
+          <textarea id="source-apps" rows="2" maxlength="6000" spellcheck="false" placeholder='{"notepad":"C:\\Windows\\System32\\notepad.exe"}'></textarea>
+          <div class="actions">
+            <button id="source-save" type="button">保存数据源</button>
+            <button id="source-feed" type="button" hidden>复制通知桥连接信息</button>
+          </div>
+        </fieldset>
+        <p id="source-status" class="detail" role="status"></p>
+      </details>
     </section>
     <section aria-labelledby="appearance-heading">
       <h2 id="appearance-heading">歌词外观</h2>

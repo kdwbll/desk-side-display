@@ -27,6 +27,7 @@ builder.Services.AddSingleton(new PanelSettings(Path.Combine(project, ".data")))
 builder.Services.AddSingleton(service => new LyricAppearanceSettings(service.GetRequiredService<PanelSettings>().DataPath));
 builder.Services.AddSingleton(service => new LyricsCatalog(service.GetRequiredService<PanelSettings>().DataPath));
 builder.Services.AddSingleton(service => new DisplayPages(service.GetRequiredService<PanelSettings>().DataPath));
+builder.Services.AddSingleton(service => new WidgetSources(service.GetRequiredService<PanelSettings>().DataPath));
 builder.Services.AddSingleton<KeyboardShortcut>();
 builder.Services.AddSingleton<HardwareMetrics>();
 builder.Services.AddSingleton<AppleMusic>();
@@ -35,6 +36,7 @@ builder.Services.AddSingleton(new UsbBridge(Path.Combine(project, ".tools", "pla
 builder.Services.AddHostedService(service => service.GetRequiredService<UsbBridge>());
 
 var app = builder.Build();
+var widgetSources = app.Services.GetRequiredService<WidgetSources>();
 app.Use(async (context, next) =>
 {
     var port = context.Connection.LocalPort;
@@ -49,7 +51,9 @@ app.Use(async (context, next) =>
         var localControl = port == controlPort && context.Request.Headers["X-DeskSide-Control"] == "1";
         var phoneShortcut = port == displayPort && context.Request.Path.StartsWithSegments("/api/widgets") &&
             context.Request.Headers["X-DeskSide-Shortcut"] == shortcutCapability;
-        if ((!localControl && !phoneShortcut) || context.Request.Headers.Origin != $"http://{context.Request.Host}")
+        var notificationFeed = port == controlPort && context.Request.Path == "/api/widget-notifications" &&
+            context.Request.Headers["X-DeskSide-Feed"] == widgetSources.FeedKey;
+        if (!notificationFeed && ((!localControl && !phoneShortcut) || context.Request.Headers.Origin != $"http://{context.Request.Host}"))
         {
             context.Response.StatusCode = 403;
             return;
@@ -121,12 +125,13 @@ app.MapGet("/api/state", (HttpContext context, AppleMusic player, PanelSettings 
     });
 });
 
-app.MapGet("/api/pages", (HttpContext context, DisplayPages pages, UsbBridge usb) =>
+app.MapGet("/api/pages", (HttpContext context, DisplayPages pages, UsbBridge usb, WidgetSources sources) =>
 {
     var layout = pages.Read();
-    var capability = context.Connection.LocalPort == displayPort && layout.ShortcutsEnabled && usb.Status == "ready"
+    var actionsEnabled = sources.Read().Actions;
+    var capability = context.Connection.LocalPort == displayPort && (layout.ShortcutsEnabled || actionsEnabled) && usb.Status == "ready"
         ? shortcutCapability : null;
-    return Results.Ok(new { layout, shortcutCapability = capability });
+    return Results.Ok(new { layout, shortcutCapability = capability, actionsEnabled, sourcesRevision = sources.Revision });
 });
 
 app.MapPost("/api/pages", (DisplayLayout proposed, DisplayPages pages) =>
@@ -144,6 +149,48 @@ app.MapPost("/api/pages/validate-widget", (WidgetManifest manifest) =>
 
 app.MapGet("/api/metrics", async (HardwareMetrics metrics, CancellationToken token) =>
     Results.Ok(await metrics.ReadAsync(token)));
+
+app.MapGet("/api/widget-sources", (HttpContext context, WidgetSources sources) =>
+{
+    if (context.Connection.LocalPort != controlPort) return Results.NotFound();
+    var config = sources.Read();
+    return Results.Ok(new { config, notificationKey = config.Notifications ? sources.FeedKey : null });
+});
+
+app.MapPost("/api/widget-sources", (WidgetSourceConfig config, WidgetSources sources) =>
+{
+    var error = sources.Save(config);
+    return error == null ? Results.Ok(new { config, notificationKey = config.Notifications ? sources.FeedKey : null }) : Error(error);
+});
+
+app.MapPost("/api/widget-notifications", (WidgetNotification message, HttpContext context, WidgetSources sources) =>
+{
+    if (context.Connection.LocalPort != controlPort || context.Request.Headers["X-DeskSide-Feed"] != sources.FeedKey)
+        return Results.StatusCode(403);
+    var error = sources.Publish(message);
+    return error == null ? Results.NoContent() : Error(error);
+});
+
+app.MapGet("/api/widget-data", async (string page, HttpContext context, DisplayPages pages, WidgetSources sources,
+    UsbBridge usb, CancellationToken token) =>
+{
+    if (context.Connection.LocalPort != displayPort || usb.Status != "ready") return Results.StatusCode(403);
+    var displayPage = pages.Read().Pages.FirstOrDefault(item => item.Id == page);
+    return displayPage == null ? Results.NotFound() : Results.Ok(await sources.Sample(displayPage, token));
+});
+
+app.MapPost("/api/widgets/{id:guid}/action/{trigger}", async (Guid id, string trigger, HttpContext context,
+    DisplayPages pages, WidgetSources sources, UsbBridge usb, AppleMusic music) =>
+{
+    if (context.Connection.LocalPort != displayPort || usb.Status != "ready" || !sources.Read().Actions)
+        return Results.StatusCode(403);
+    var widget = pages.Read().Pages.SelectMany(page => page.Widgets)
+        .FirstOrDefault(item => item.Id == id && item.Type == "custom" && item.Manifest?.Version == 2);
+    var action = widget == null ? null : WidgetProtocol.Action(widget.Manifest!, trigger);
+    if (action == null) return Results.NotFound();
+    var error = await sources.Act(action, music);
+    return error == null ? Results.NoContent() : Error(error, 409);
+});
 
 app.MapPost("/api/widgets/{id:guid}/press", (Guid id, HttpContext context, DisplayPages pages,
     UsbBridge usb, KeyboardShortcut keyboard) =>
