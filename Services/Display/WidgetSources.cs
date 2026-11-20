@@ -18,6 +18,7 @@ sealed class WidgetSources : IDisposable
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private readonly object gate = new();
     private readonly string path;
+    private readonly ClipboardHistory history;
     private readonly Dictionary<Uri, CachedDocument> documents = [];
     private readonly HttpClient http = new(new SocketsHttpHandler { AllowAutoRedirect = false, UseCookies = false, UseProxy = false })
         { Timeout = Timeout.InfiniteTimeSpan };
@@ -29,8 +30,9 @@ sealed class WidgetSources : IDisposable
     public string FeedKey { get; } = Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
     public long Revision => Interlocked.Read(ref revision);
 
-    public WidgetSources(string folder)
+    public WidgetSources(string folder, ClipboardHistory history)
     {
+        this.history = history;
         path = Path.Combine(folder, "widget-sources.json");
         if (!File.Exists(path) || new FileInfo(path).Length > 16_384) return;
         try
@@ -91,9 +93,14 @@ sealed class WidgetSources : IDisposable
         var groups = requested.Select(WidgetProtocol.Group).ToHashSet(StringComparer.Ordinal);
         if (groups.Contains("clipboard") && options.Clipboard)
         {
-            var thumbnails = manifests.SelectMany(manifest => manifest.Blocks ?? []).Any(block =>
-                block.Kind == "files" && block.Source == "clipboard.files" && block.FileDisplay != "icon");
-            Add(values, await WidgetWindows.ClipboardValues(requested, thumbnails));
+            if (requested.Contains("clipboard.history"))
+                values["clipboard.history"] = await history.Read(token);
+            if (requested.Overlaps(["clipboard.text", "clipboard.image", "clipboard.files"]))
+            {
+                var thumbnails = manifests.SelectMany(manifest => manifest.Blocks ?? []).Any(block =>
+                    block.Kind == "files" && block.Source == "clipboard.files" && block.FileDisplay != "icon");
+                Add(values, await WidgetWindows.ClipboardValues(requested, thumbnails));
+            }
         }
         if (groups.Contains("window") && options.Window) Add(values, WidgetWindows.Foreground());
         if (groups.Contains("power")) Add(values, WidgetWindows.Power());
@@ -134,7 +141,8 @@ sealed class WidgetSources : IDisposable
             .ToDictionary(StringComparer.Ordinal);
     }
 
-    public async Task<string?> Act(WidgetAction action, AppleMusic music, KeyboardShortcut keyboard, uint? clipboardVersion)
+    public async Task<string?> Act(WidgetAction action, AppleMusic music, KeyboardShortcut keyboard, uint? clipboardVersion,
+        string? historyItem, CancellationToken token)
     {
         WidgetSourceConfig options;
         lock (gate)
@@ -146,6 +154,11 @@ sealed class WidgetSources : IDisposable
             lastAction = Stopwatch.GetTimestamp();
         }
         if (action.Type == "refresh") return null;
+        if (action.Type == "clipboard.history.paste")
+        {
+            if (!options.Clipboard) return "请先在 Windows 面板允许读取剪贴板。";
+            return await history.Paste(historyItem, keyboard, token);
+        }
         if (action.Type == "clipboard.paste")
         {
             if (!options.Clipboard) return "请先在 Windows 面板允许读取剪贴板。";

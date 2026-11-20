@@ -147,7 +147,7 @@ window.widgetV2 = (() => {
       control.type = 'button';
       control.setAttribute('aria-label', name);
       control.addEventListener('click', () => {
-        if (clipboardVersion) execute('button-' + index, clipboardVersion);
+        if (clipboardVersion) execute('button-' + index, { clipboardVersion });
       });
       return control;
     }
@@ -176,6 +176,25 @@ window.widgetV2 = (() => {
         const angles = [30 * h + .5 * m, 6 * m + .1 * s, 6 * s];
         hands.forEach((hand, i) => { hand.style.rotate = angles[i] + 'deg'; });
         face.setAttribute('aria-label', raw('time', context, format));
+      } };
+    }
+    if (block.kind === 'history') {
+      const list = node('ul', 'widget-v2-history-list');
+      const canPaste = execute && block.action?.type === 'clipboard.history.paste';
+      let previousIds;
+      box.append(list);
+      return { box, update(context) {
+        const value = raw(block.source, context, format);
+        const entries = Array.isArray(value) ? value.slice(0, 25) : [];
+        const ids = entries.map(entry => entry.id + ':' + entry.copiedAt).join('|');
+        if (ids !== previousIds) {
+          const scroll = list.scrollTop;
+          list.replaceChildren(...entries.map(entry => historyRow(entry, canPaste ?
+            () => execute('button-' + index, { historyItem: entry.id }) : null, format)));
+          list.scrollTop = scroll;
+          previousIds = ids;
+        }
+        return entries.length > 0;
       } };
     }
     if (block.kind === 'image') {
@@ -283,11 +302,51 @@ window.widgetV2 = (() => {
     }
   }
 
+  function historyRow(entry, paste, format) {
+    const row = node('li');
+    const body = node(paste ? 'button' : 'div', 'widget-v2-history-entry');
+    if (paste) {
+      body.type = 'button';
+      body.addEventListener('click', paste);
+    }
+    row.append(body);
+    const content = node('span', 'widget-v2-history-content');
+    const time = node('time', 'widget-v2-history-time');
+    const copiedAt = new Date(entry.copiedAt);
+    if (Number.isFinite(copiedAt.getTime())) {
+      time.dateTime = copiedAt.toISOString();
+      const today = copiedAt.toDateString() === new Date().toDateString();
+      time.textContent = dateFormatter(format.locale ?? 'zh-CN', {
+        month: today ? undefined : 'numeric', day: today ? undefined : 'numeric',
+        hour: '2-digit', minute: '2-digit', hourCycle: format.hourCycle ?? 'h23', timeZone: format.timeZone
+      }).format(copiedAt);
+    }
+    if (entry.kind === 'image') {
+      const image = node('img', 'widget-v2-history-image');
+      image.alt = '剪贴板图片';
+      content.append(setMedia(image, entry.image) ? image : node('span', '', '剪贴板图片'));
+    } else if (entry.kind === 'files') {
+      for (const file of (entry.files ?? []).slice(0, 6)) {
+        const item = node('span', 'widget-v2-history-file');
+        const image = node('img');
+        image.alt = '';
+        item.append(setMedia(image, file.icon) ? image : node('span', '', icons.file));
+        item.append(node('span', '', short(file.name ?? '文件', 100)));
+        content.append(item);
+      }
+    } else {
+      content.classList.add('widget-v2-history-text');
+      content.textContent = entry.text?.trim() ? entry.text : '空白文本';
+    }
+    body.append(content, time);
+    return row;
+  }
+
   function make(widget, run) {
     const manifest = widget.manifest;
     const tile = node('article', 'widget widget-' + widget.size + ' widget-v2');
     tile.style.setProperty('--widget-accent', widget.color);
-    const execute = run ? (trigger, clipboardVersion) => run(widget, trigger, clipboardVersion) : null;
+    const execute = run ? (trigger, parameters) => run(widget, trigger, parameters) : null;
     if (execute && manifest.actions) actionsByTile.set(tile, { actions: manifest.actions, execute });
     const title = node('span', 'widget-label', widget.name);
     tile.append(title);

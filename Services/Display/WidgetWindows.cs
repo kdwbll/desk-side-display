@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
@@ -53,6 +54,21 @@ static class WidgetWindows
         return true;
     }, false);
 
+    public static Task<string[]> ClipboardFilePaths(uint version) => InClipboard(() =>
+    {
+        if (version != ClipboardVersion || !Clipboard.ContainsFileDropList()) return [];
+        var files = Clipboard.GetFileDropList().Cast<string>().Take(257).ToArray();
+        return files.Length <= 256 && version == ClipboardVersion ? files : [];
+    }, Array.Empty<string>());
+
+    public static Task<bool> RestoreFiles(string[] files) => InClipboard(() =>
+    {
+        var list = new StringCollection();
+        list.AddRange(files);
+        Clipboard.SetFileDropList(list);
+        return true;
+    }, false);
+
     private static Task<T> InClipboard<T>(Func<T> read, T fallback)
     {
         _ = ClipboardThread.Value;
@@ -66,7 +82,7 @@ static class WidgetWindows
         return result.Task;
     }
 
-    private static ClipboardFile FileItem(string path, bool includeThumbnail)
+    internal static ClipboardFile FileItem(string path, bool includeThumbnail)
     {
         var name = Limit(Path.GetFileName(path), 140);
         if (name.Length == 0) name = "文件";
@@ -95,7 +111,7 @@ static class WidgetWindows
         return new ClipboardFile(name, icon, thumbnail);
     }
 
-    private static string? Thumbnail(Image image, int limit = 192)
+    internal static string? Thumbnail(Image image, int limit = 192)
     {
         if (image.Width <= 0 || image.Height <= 0 || (long)image.Width * image.Height > 30_000_000) return null;
         var scale = Math.Min(1d, limit / (double)Math.Max(image.Width, image.Height));
@@ -193,7 +209,7 @@ static class WidgetWindows
     }
 
     private static string Limit(string text, int length) => text.Length <= length ? text : text[..length];
-    private sealed record ClipboardFile(string Name, string? Icon, string? Thumbnail);
+    internal sealed record ClipboardFile(string Name, string? Icon, string? Thumbnail);
 
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] private static extern uint GetClipboardSequenceNumber();

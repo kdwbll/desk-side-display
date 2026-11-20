@@ -27,7 +27,10 @@ builder.Services.AddSingleton(new PanelSettings(Path.Combine(project, ".data")))
 builder.Services.AddSingleton(service => new LyricAppearanceSettings(service.GetRequiredService<PanelSettings>().DataPath));
 builder.Services.AddSingleton(service => new LyricsCatalog(service.GetRequiredService<PanelSettings>().DataPath));
 builder.Services.AddSingleton(service => new DisplayPages(service.GetRequiredService<PanelSettings>().DataPath));
-builder.Services.AddSingleton(service => new WidgetSources(service.GetRequiredService<PanelSettings>().DataPath));
+builder.Services.AddSingleton<ClipboardHistory>();
+builder.Services.AddSingleton(service => new WidgetSources(service.GetRequiredService<PanelSettings>().DataPath,
+    service.GetRequiredService<ClipboardHistory>()));
+builder.Services.AddHostedService<ClipboardFileHistoryPoller>();
 builder.Services.AddSingleton<KeyboardShortcut>();
 builder.Services.AddSingleton<HardwareMetrics>();
 builder.Services.AddSingleton<AppleMusic>();
@@ -179,9 +182,9 @@ app.MapGet("/api/widget-data", async (string page, HttpContext context, DisplayP
     return displayPage == null ? Results.NotFound() : Results.Ok(await sources.Sample(displayPage, token));
 });
 
-app.MapPost("/api/widgets/{id:guid}/action/{trigger}", async (Guid id, string trigger, uint? clipboardVersion,
+app.MapPost("/api/widgets/{id:guid}/action/{trigger}", async (Guid id, string trigger, uint? clipboardVersion, string? historyItem,
     HttpContext context, DisplayPages pages, WidgetSources sources, UsbBridge usb, AppleMusic music,
-    KeyboardShortcut keyboard) =>
+    KeyboardShortcut keyboard, CancellationToken token) =>
 {
     if (context.Connection.LocalPort != displayPort || usb.Status != "ready" || !sources.Read().Actions)
         return Results.StatusCode(403);
@@ -189,7 +192,7 @@ app.MapPost("/api/widgets/{id:guid}/action/{trigger}", async (Guid id, string tr
         .FirstOrDefault(item => item.Id == id && item.Type == "custom" && item.Manifest?.Version == 2);
     var action = widget == null ? null : WidgetProtocol.Action(widget.Manifest!, trigger);
     if (action == null) return Results.NotFound();
-    var error = await sources.Act(action, music, keyboard, clipboardVersion);
+    var error = await sources.Act(action, music, keyboard, clipboardVersion, historyItem, token);
     return error == null ? Results.NoContent() : Error(error, 409);
 });
 

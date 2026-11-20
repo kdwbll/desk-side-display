@@ -64,6 +64,7 @@ static class WidgetProtocol
         ["gpu.temperature"] = "number", ["gpu.power"] = "number", ["gpu.fan"] = "number",
         ["gpu.clock"] = "number", ["ram.used"] = "number", ["ram.total"] = "number", ["ram.usage"] = "number",
         ["clipboard.text"] = "text", ["clipboard.image"] = "image", ["clipboard.files"] = "files",
+        ["clipboard.history"] = "history",
         ["notification.title"] = "text", ["notification.body"] = "text", ["notification.app"] = "text",
         ["notification.count"] = "number", ["window.title"] = "text", ["window.process"] = "text",
         ["volume.percent"] = "number", ["volume.muted"] = "boolean", ["power.percent"] = "number",
@@ -108,7 +109,7 @@ static class WidgetProtocol
                 return $"数据 {source} 需要声明 {permission} 权限。";
         }
         if (manifest.Actions?.Any(item => !Triggers.Contains(item.Key) || !ValidAction(item.Value) ||
-            item.Value.Type == "clipboard.paste") == true ||
+            (item.Value.Type is "clipboard.paste" or "clipboard.history.paste")) == true ||
             (Actions(manifest).Any() && manifest.Permissions?.Contains("actions") != true))
             return "动作类型无效，或缺少 actions 权限声明。";
         return null;
@@ -151,7 +152,7 @@ static class WidgetProtocol
 
     private static bool ValidBlock(WidgetBlock block, int columns)
     {
-        if (block.Kind is not ("text" or "value" or "image" or "files" or "ring" or "progress" or "clock" or "button" or "icon") ||
+        if (block.Kind is not ("text" or "value" or "image" or "files" or "ring" or "progress" or "clock" or "button" or "icon" or "history") ||
             !ValidTemplate(block.Text, 260) || !ValidTemplate(block.Label, 100) || TooLong(block.Fallback, 80) ||
             TooLong(block.Icon, 30) || block.ValueType is not (null or "text" or "number" or "boolean" or "image" or "files") ||
             block.MaxLength is < 1 or > 2000 || block.Span is < 1 || block.Span > columns ||
@@ -162,18 +163,19 @@ static class WidgetProtocol
             (block.Source != null && !Known(block.Source)) ||
             (block.FileDisplay != null && (block.Kind != "files" || block.FileDisplay is not ("icon" or "preview"))))
             return false;
-        if (block.Action != null && (!ValidAction(block.Action) ||
-            (block.Action.Type == "clipboard.paste" ? !ClipboardContent(block) : block.Kind != "button")))
+        if (block.Action != null && (!ValidAction(block.Action) || !ValidBlockAction(block)))
             return false;
         var expected = block.Kind switch
         {
-            "image" => "image", "files" => "files", "ring" or "progress" => "number", _ => block.ValueType
+            "image" => "image", "files" => "files", "history" => "history",
+            "ring" or "progress" => "number", _ => block.ValueType
         };
         if (block.Source != null && BuiltInTypes.TryGetValue(block.Source, out var type) && expected != null && expected != type)
             return false;
         return block.Kind switch
         {
             "image" or "files" or "ring" or "progress" or "value" => block.Source != null,
+            "history" => block.Source == "clipboard.history",
             "button" => ValidAction(block.Action) && (!string.IsNullOrWhiteSpace(block.Text) || !string.IsNullOrWhiteSpace(block.Label)),
             _ => true
         };
@@ -181,14 +183,20 @@ static class WidgetProtocol
 
     private static bool ValidAction(WidgetAction? action) => action?.Type switch
     {
-        "music.previous" or "music.toggle" or "music.next" or "refresh" or "clipboard.paste" => action.Value == null,
+        "music.previous" or "music.toggle" or "music.next" or "refresh" or "clipboard.paste" or
+            "clipboard.history.paste" => action.Value == null,
         "copy" => !string.IsNullOrWhiteSpace(action.Value) && action.Value.Length <= 1000,
         "open-app" => action.Value is { Length: <= 32 } && ReferencePattern.IsMatch(action.Value) && !action.Value.Contains('.'),
         _ => false
     };
 
-    private static bool ClipboardContent(WidgetBlock block) => (block.Kind, block.Source) is
-        ("value", "clipboard.text") or ("image", "clipboard.image") or ("files", "clipboard.files");
+    private static bool ValidBlockAction(WidgetBlock block) => block.Action!.Type switch
+    {
+        "clipboard.paste" => (block.Kind, block.Source) is
+            ("value", "clipboard.text") or ("image", "clipboard.image") or ("files", "clipboard.files"),
+        "clipboard.history.paste" => block.Kind == "history" && block.Source == "clipboard.history",
+        _ => block.Kind == "button"
+    };
 
     private static bool ValidEmpty(WidgetEmpty? empty) => empty == null ||
         (!string.IsNullOrWhiteSpace(empty.Text) && empty.Text.Length <= 80 &&

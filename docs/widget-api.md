@@ -36,7 +36,7 @@
 | `time`、`date`、`time.*` | 本机格式化文字或时钟进度数字 | — |
 | `music.*`、`media.*` | 歌曲标题、歌手、进度、播放状态、封面或相框图片 | — |
 | `cpu.*`、`gpu.*`、`ram.*` | 硬件读数和显卡名称 | — |
-| `clipboard.text`、`clipboard.image`、`clipboard.files` | Windows 剪贴板文本、图片、最多六个文件名及可用的本机图标/缩略图 | 声明 `clipboard`，并在面板开启 |
+| `clipboard.text`、`clipboard.image`、`clipboard.files`、`clipboard.history` | Windows 当前剪贴板内容和最多 25 条历史。单个文件条目预览前六个文件名及图标 | 声明 `clipboard`，并在面板开启 |
 | `notification.*` | 本机通知桥推送的最新标题、正文、应用名、计数 | 声明 `notifications`，并在面板开启 |
 | `window.*` | Windows 前台窗口标题和进程名 | 声明 `window`，并在面板开启 |
 | `volume.*` | Windows 默认输出设备的音量、静音状态 | — |
@@ -73,11 +73,11 @@
 
 ## 剪贴板示例
 
-[剪贴板组件 JSON](../wwwroot/shared/examples/clipboard-widget.json)包含文件、图片和文本三种内容。文件只显示图标和名称，为同一份剪贴板提供的多种格式按文件、图片、文字的顺序选择。没有可显示的内容时，组件在卡片中央显示半透明「暂无内容」。
+[剪贴板组件 JSON](../wwwroot/shared/examples/clipboard-widget.json)以可滚动列表显示最近 25 条内容，最新的在上面。文本和图片直接读取 Windows 的 Win+V 历史。文件只显示图标和名称，在服务运行且启用了历史组件时记录到本机内存。关闭剪贴板权限或移除最后一个历史组件后会清除这些文件记录。没有内容时，组件在卡片中央显示半透明「暂无内容」。
 
-在「组件数据源与权限」开启剪贴板及组件动作后，点击预览内容可把当前 Windows 剪贴板粘贴到电脑焦点所在的应用。多文件作为剪贴板上的整组文件粘贴，具体效果取决于目标应用支持的格式。粘贴校验显示时的剪贴板版本，内容变化时请等手机刷新后再点击。
+开启剪贴板和组件动作后，点击一项会恢复该条内容并粘贴到 Windows 当前焦点。单次复制的多个文件是一条记录，按整组粘贴。Windows 的文本和图片历史需要在系统中开启 Win+V。 [Microsoft 剪贴板历史说明](https://support.microsoft.com/en-gb/windows/apps/using-the-clipboard)
 
-`fileDisplay: "icon"` 可给文件块关闭缩略图，`hideWhenEmpty` 可隐藏空内容块，`layout.firstPresent` 可按顺序选择第一个可见块，`empty` 定义全空时的提示。 `clipboard.paste` 可放在 `clipboard.text` 的 value 块、`clipboard.image` 的 image 块和 `clipboard.files` 的 files 块。组件需声明 `clipboard` 和 `actions`。
+`clipboard.history.paste` 用于绑定 `clipboard.history` 的 history 块。只展示当前剪贴板的组件仍可用 `clipboard.paste`，将其放在绑定 `clipboard.text`、`clipboard.image` 或 `clipboard.files` 的内容块。`fileDisplay: "icon"` 可给单独的 files 块关闭缩略图，`hideWhenEmpty` 可隐藏空内容块，`layout.firstPresent` 可按顺序选择第一个可见块，`empty` 定义全空时的提示。粘贴组件需声明 `clipboard` 和 `actions`。
 
 ## 通知桥
 

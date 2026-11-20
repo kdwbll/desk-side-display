@@ -242,6 +242,7 @@
             "clipboard.text",
             "clipboard.image",
             "clipboard.files",
+            "clipboard.history",
             "notification.title",
             "notification.body",
             "notification.app",
@@ -394,6 +395,7 @@
             "value",
             "image",
             "files",
+            "history",
             "ring",
             "progress",
             "clock",
@@ -481,16 +483,16 @@
             { "$ref": "#/$defs/action" },
             {
               "type": "object",
-              "description": "只可绑定 clipboard.text 的 value、clipboard.image 的 image 或 clipboard.files 的 files。需要 clipboard 和 actions 权限。",
+              "description": "clipboard.paste 用于当前内容块，clipboard.history.paste 用于历史列表。需要 clipboard 和 actions 权限。",
               "additionalProperties": false,
               "required": ["type"],
-              "properties": { "type": { "const": "clipboard.paste" } }
+              "properties": { "type": { "enum": ["clipboard.paste", "clipboard.history.paste"] } }
             }
           ]
         },
         "hideWhenEmpty": {
           "type": "boolean",
-          "description": "value、image 或 files 没有内容时隐藏此块。"
+          "description": "value、image、files 或 history 没有内容时隐藏此块。"
         },
         "fileDisplay": {
           "enum": ["icon", "preview"],
@@ -529,6 +531,7 @@
     "clipboard.text": "text",
     "clipboard.image": "image",
     "clipboard.files": "files",
+    "clipboard.history": "history",
     "notification.title": "text",
     "notification.body": "text",
     "notification.app": "text",
@@ -550,7 +553,7 @@
   },
   "x-permissions": {
     "clipboard": [
-      "clipboard.*", "clipboard.paste"
+      "clipboard.*", "clipboard.paste", "clipboard.history.paste"
     ],
     "notifications": [
       "notification.*"

@@ -196,10 +196,10 @@ const phonePages = (() => {
     finally { button.disabled = !capability; }
   }
 
-  async function runAction(widget, trigger, clipboardVersion) {
+  async function runAction(widget, trigger, parameters) {
     if (!capability || !actionsEnabled) return;
     try {
-      const query = clipboardVersion ? '?clipboardVersion=' + encodeURIComponent(clipboardVersion) : '';
+      const query = parameters ? '?' + new URLSearchParams(parameters) : '';
       const response = await fetch('/api/widgets/' + widget.id + '/action/' + trigger + query, {
         method: 'POST', headers: { 'X-DeskSide-Shortcut': capability },
         signal: AbortSignal.timeout(3500)
