@@ -75,14 +75,25 @@ window.deskWidgets = (() => {
       Object.hasOwn(metrics, key) ? metricValue(key, values) : tokens[key] ?? '—');
   }
 
-  function make(widget, press, mediaControl) {
+  function make(widget, press, mediaControl, openNote) {
     if (widget.type === 'music') return makeMusic(widget, mediaControl);
     if (widget.type === 'shortcut') return makeShortcut(widget, press);
     if (widget.type === 'image' || widget.type === 'gif') return makeImage(widget);
     if (widget.type === 'emoji') return makeEmoji(widget);
     const metric = widget.type === 'metric' ? widget.metric :
       widget.type === 'custom' ? widget.manifest?.gauge : null;
-    const tile = node('article', 'widget widget-' + widget.size);
+    const note = widget.type === 'text';
+    const tile = node(note && openNote ? 'button' : 'article', 'widget widget-' + widget.size);
+    if (note) tile.classList.add('widget-note');
+    if (note && openNote) {
+      tile.type = 'button';
+      tile.title = '在 Windows 桌面新建便签并打开';
+      tile.addEventListener('click', async () => {
+        tile.disabled = true;
+        try { await openNote(widget); }
+        finally { tile.disabled = false; }
+      });
+    }
     if (widget.type === 'clock') tile.classList.add('widget-clock');
     tile.style.setProperty('--widget-accent', widget.color);
     const value = node('span', 'widget-value');

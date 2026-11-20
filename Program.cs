@@ -33,6 +33,7 @@ builder.Services.AddSingleton(service => new WidgetSources(service.GetRequiredSe
     service.GetRequiredService<ClipboardHistory>()));
 builder.Services.AddHostedService<ClipboardFileHistoryPoller>();
 builder.Services.AddSingleton<KeyboardShortcut>();
+builder.Services.AddSingleton(new DesktopNotes(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory)));
 builder.Services.AddSingleton<HardwareMetrics>();
 builder.Services.AddSingleton<AppleMusic>();
 builder.Services.AddHostedService(service => service.GetRequiredService<AppleMusic>());
@@ -228,6 +229,18 @@ app.MapPost("/api/widgets/{id:guid}/press", (Guid id, HttpContext context, Displ
         .FirstOrDefault(widget => widget.Id == id && widget.Type == "shortcut");
     if (widget == null) return Error("该快捷键组件已移除。", 404);
     var error = keyboard.Press(widget.Keys);
+    return error == null ? Results.NoContent() : Error(error, 409);
+});
+
+app.MapPost("/api/widgets/{id:guid}/open-note", (Guid id, HttpContext context, DisplayPages pages,
+    UsbBridge usb, WidgetSources sources, DesktopNotes notes) =>
+{
+    if (context.Connection.LocalPort != displayPort || usb.Status != "ready" || !sources.Read().Actions)
+        return Error("请在 Windows 面板允许组件动作，并通过 USB 连接。", 403);
+    var widget = pages.Read().Pages.SelectMany(page => page.Widgets)
+        .FirstOrDefault(item => item.Id == id && item.Type == "text");
+    if (widget?.Text is not { } text) return Error("该便签组件已移除。", 404);
+    var error = notes.CreateAndOpen(text);
     return error == null ? Results.NoContent() : Error(error, 409);
 });
 

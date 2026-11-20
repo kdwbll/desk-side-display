@@ -69,7 +69,7 @@ const phonePages = (() => {
     tiles = page.widgets.map(widget => widget.type === 'custom' && widget.manifest?.version === 2
       ? widgetV2.make(widget, capability && actionsEnabled ? runAction : null)
       : deskWidgets.make(widget, capability && shortcutsEnabled ? press : null,
-        capability && actionsEnabled ? controlMusic : null));
+        capability && actionsEnabled ? controlMusic : null, openNote));
     const free = widgetPlacement.isFree(page);
     const rects = free ? widgetPlacement.resolve(page) : null;
     stage.replaceChildren(...(free ? tiles.map((tile, i) => widgetPlacement.frame(tile.element, rects[i])) : []));
@@ -236,6 +236,21 @@ const phonePages = (() => {
         throw Error(type.startsWith('text/plain') ? await response.text() : '音乐控制暂不可用。');
       }
     } catch (error) { announce(error.message || '音乐控制失败'); }
+  }
+
+  async function openNote(widget) {
+    if (!actionsEnabled) return announce('请在 Windows 控制面板允许组件动作。');
+    if (!capability) return announce('请确认手机已通过 USB 连接。');
+    try {
+      const response = await fetch('/api/widgets/' + widget.id + '/open-note', {
+        method: 'POST', headers: { 'X-DeskSide-Shortcut': capability }, signal: AbortSignal.timeout(3500)
+      });
+      if (!response.ok) {
+        const type = response.headers.get('Content-Type') ?? '';
+        throw Error(type.startsWith('text/plain') ? await response.text() : '暂时无法新建便签。');
+      }
+      announce('已在 Windows 桌面新建并打开便签。');
+    } catch (error) { announce(error.message || '新建便签失败。'); }
   }
 
   function announce(message) {

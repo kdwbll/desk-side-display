@@ -75,6 +75,7 @@
   overflow-wrap: anywhere;
 }
 .widget-clock .widget-value { color: var(--widget-accent); white-space: nowrap; }
+.widget-note .widget-value { white-space: pre-wrap; }
 .widget [hidden], .widget-grid[hidden] { display: none !important; }
 .widget-gauge {
   --widget-progress: 0%;
