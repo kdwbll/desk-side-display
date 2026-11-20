@@ -82,13 +82,14 @@ window.deskWidgets = (() => {
       widget.type === 'custom' ? widget.manifest?.gauge : null;
     const tile = node('article', 'widget widget-' + widget.size);
     tile.style.setProperty('--widget-accent', widget.color);
-    const label = node('span', 'widget-label', widget.name);
     const value = node('span', 'widget-value');
     const detail = node('span', 'widget-detail');
     const face = node('span', metric ? 'widget-gauge' : 'widget-face');
     if (metric) tile.classList.add('widget-with-gauge');
     face.append(value);
-    tile.append(face, label, detail);
+    tile.append(face);
+    if (widget.name.trim()) tile.append(node('span', 'widget-label', widget.name));
+    tile.append(detail);
 
     function update(context) {
       const hw = context.hardware?.values ?? {};
@@ -133,7 +134,7 @@ window.deskWidgets = (() => {
     tile.style.setProperty('--widget-accent', widget.color);
     tile.type = 'button';
     tile.disabled = !press;
-    tile.setAttribute('aria-label', [widget.name, widget.keys].filter(Boolean).join(' · '));
+    tile.setAttribute('aria-label', [widget.name.trim(), widget.keys].filter(Boolean).join(' · ') || '快捷键');
     if (press) tile.addEventListener('click', () => press(widget, tile));
     const chord = node('span', 'widget-keycaps');
     chord.setAttribute('aria-hidden', 'true');
@@ -142,7 +143,8 @@ window.deskWidgets = (() => {
       const cap = node('kbd', '', key);
       return index ? [node('span', 'widget-key-join', '+'), cap] : [cap];
     }));
-    tile.append(chord, node('span', 'widget-label', widget.name));
+    tile.append(chord);
+    if (widget.name.trim()) tile.append(node('span', 'widget-label', widget.name));
     return { element: tile, update() {} };
   }
 

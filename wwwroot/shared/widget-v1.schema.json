@@ -7,7 +7,7 @@
   "required": ["version", "name", "size", "color", "template"],
   "properties": {
     "version": { "const": 1 },
-    "name": { "type": "string", "minLength": 1, "maxLength": 24, "pattern": "\\S" },
+    "name": { "type": "string", "maxLength": 24, "description": "空字符串隐藏组件名称。" },
     "size": { "enum": ["small", "medium", "large"] },
     "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
     "template": { "type": "string", "minLength": 1, "maxLength": 120, "pattern": "\\S" },

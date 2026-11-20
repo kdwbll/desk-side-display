@@ -373,10 +373,10 @@ window.widgetV2 = (() => {
         span: layout.columns ?? 2
       }] : [])
     ];
-    if (blocks.length === 1 && blocks[0].kind === 'weather') {
-      title.hidden = true;
-      tile.classList.add('widget-weather-only');
-    }
+    const weatherOnly = blocks.length === 1 && blocks[0].kind === 'weather';
+    const showTitle = Boolean(widget.name.trim()) && !weatherOnly;
+    title.hidden = !showTitle;
+    if (weatherOnly) tile.classList.add('widget-weather-only');
     for (const name of ['light', 'dark']) {
       const palette = manifest.theme?.[name] ?? {};
       for (const style of ['foreground', 'background', 'accent'])
@@ -403,7 +403,8 @@ window.widgetV2 = (() => {
     }
     const gestures = manifest.actions ?? {};
     if (gestures.tap) {
-      const button = node('button', 'widget-v2-button widget-v2-trigger', '执行 · ' + widget.name);
+      const button = node('button', 'widget-v2-button widget-v2-trigger',
+        ['执行', widget.name.trim()].filter(Boolean).join(' · '));
       button.type = 'button';
       button.disabled = !execute;
       if (execute) button.addEventListener('click', () => execute('tap'));
@@ -433,7 +434,8 @@ window.widgetV2 = (() => {
       });
       if (empty) {
         empty.hidden = visible;
-        title.hidden = grid.hidden = !visible;
+        title.hidden = !visible || !showTitle;
+        grid.hidden = !visible;
       }
     } };
   }

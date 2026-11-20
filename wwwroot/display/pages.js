@@ -77,10 +77,22 @@ const phonePages = (() => {
     grid.scrollTop = strip.scrollTop = 0;
     strip.hidden = expanded || tiles.length === 0;
     empty.hidden = tiles.length !== 0;
-    heading.textContent = page.name;
+    const pageName = page.name.trim();
+    const pageNumber = '第 ' + (pages.indexOf(page) + 1) + ' 页';
+    heading.textContent = pageName;
+    heading.hidden = !pageName;
+    if (expanded) {
+      if (pageName) {
+        dashboard.setAttribute('aria-labelledby', heading.id);
+        dashboard.removeAttribute('aria-label');
+      } else {
+        dashboard.removeAttribute('aria-labelledby');
+        dashboard.setAttribute('aria-label', pageNumber);
+      }
+    }
     dashboard.style.setProperty('--dashboard-background', page.color);
     document.getElementById('clock').style.backgroundColor = page.color;
-    indicator.setAttribute('aria-label', page.name + '，第 ' + (pages.indexOf(page) + 1) + ' 页，共 ' + pages.length + ' 页');
+    indicator.setAttribute('aria-label', [pageName, pageNumber, '共 ' + pages.length + ' 页'].filter(Boolean).join('，'));
     indicator.replaceChildren(...pages.map(item => {
       const dot = deskWidgets.node('span', 'page-dot' + (item === page ? ' active' : ''));
       dot.setAttribute('aria-hidden', 'true');
@@ -207,7 +219,7 @@ const phonePages = (() => {
         throw Error(type.startsWith('text/plain') ? await response.text() : '组件动作暂不可用。');
       }
       dataDue = 0;
-      announce('已执行 · ' + widget.name);
+      announce(['已执行', widget.name.trim()].filter(Boolean).join(' · '));
     } catch (error) { announce(error.message || '操作失败'); }
   }
 

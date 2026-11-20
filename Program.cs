@@ -136,7 +136,8 @@ app.MapGet("/api/pages", (HttpContext context, DisplayPages pages, UsbBridge usb
     var capability = context.Connection.LocalPort == displayPort && (layout.ShortcutsEnabled || actionsEnabled) && usb.Status == "ready"
         ? shortcutCapability : null;
     var clientLayout = context.Connection.LocalPort == controlPort ? layout : layout with { WidgetLibrary = null };
-    return Results.Ok(new { layout = clientLayout, shortcutCapability = capability, actionsEnabled, sourcesRevision = sources.Revision });
+    return Results.Ok(new { layout = clientLayout, maxPages = DisplayPages.MaxPages, shortcutCapability = capability,
+        actionsEnabled, sourcesRevision = sources.Revision });
 });
 
 app.MapPost("/api/pages", (DisplayLayout proposed, DisplayPages pages) =>

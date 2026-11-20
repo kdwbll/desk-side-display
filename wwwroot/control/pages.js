@@ -43,6 +43,7 @@
   let preview;
   let replacing;
   let bundled = [];
+  let pageLimit;
 
   const currentPage = () => draft.pages.find(page => page.id === selected);
   const dirty = () => JSON.stringify(draft) !== original;
@@ -85,7 +86,8 @@
   function renderOrder() {
     list.replaceChildren(...draft.pages.map((page, index) => {
       const row = node('li');
-      const open = button(page.name, () => { selected = page.id; render(); });
+      const name = page.name.trim() || '第 ' + (index + 1) + ' 页';
+      const open = button(name, () => { selected = page.id; render(); });
       open.className = 'select-page';
       open.setAttribute('aria-pressed', String(page.id === selected));
       const move = direction => {
@@ -94,16 +96,16 @@
         renderOrder();
         save.disabled = !dirty();
       };
-      const up = button('↑', () => move(-1), '上移 ' + page.name);
-      const down = button('↓', () => move(1), '下移 ' + page.name);
+      const up = button('↑', () => move(-1), '上移 ' + name);
+      const down = button('↓', () => move(1), '下移 ' + name);
       up.className = down.className = 'move-page';
       up.disabled = index === 0;
       down.disabled = index === draft.pages.length - 1;
       row.append(open, up, down);
       return row;
     }));
-    $('page-count').textContent = draft.pages.length + ' / 6';
-    $('page-add').disabled = draft.pages.length >= 6;
+    $('page-count').textContent = draft.pages.length + ' / ' + pageLimit;
+    $('page-add').disabled = draft.pages.length >= pageLimit;
   }
 
   function refreshPreview() {
@@ -161,7 +163,8 @@
     if (templates.length) {
       const group = node('optgroup');
       group.label = '可复用组件';
-      group.append(...templates.map((manifest, index) => new Option(manifest.name, 'template-' + index)));
+      group.append(...templates.map((manifest, index) =>
+        new Option(manifest.name.trim() || '未命名组件 ' + (index + 1), 'template-' + index)));
       type.append(group);
     }
     type.setAttribute('aria-label', '组件类型');
@@ -193,11 +196,12 @@
 
   function editWidget(page, widget) {
     const box = node('details', 'page-widget-editor');
-    const summary = node('summary', '', widget.name + ' · ' + kinds[widget.type]);
+    const description = () => [widget.name.trim(), kinds[widget.type]].filter(Boolean).join(' · ');
+    const summary = node('summary', '', description());
     const fields = node('div', 'widget-fields');
     field(fields, '名称', widget.name, value => {
       widget.name = value;
-      summary.textContent = value + ' · ' + kinds[widget.type];
+      summary.textContent = description();
     }, { max: 24 });
     field(fields, '尺寸', widget.size, value => { widget.size = value; }, { entries: sizes });
     field(fields, '颜色', widget.color, value => { widget.color = value; }, { type: 'color' });
@@ -258,7 +262,9 @@
         fetch('/api/pages', { signal: AbortSignal.timeout(3500) }), loadBundled()
       ]);
       if (!response.ok) throw Error('无法读取界面。');
-      draft = (await response.json()).layout;
+      const next = await response.json();
+      draft = next.layout;
+      pageLimit = next.maxPages;
       original = JSON.stringify(draft);
       if (!draft.pages.some(page => page.id === selected)) selected = draft.pages[0].id;
       render();
@@ -271,7 +277,7 @@
     if (!draft || !dirty() || confirm('重新读取已保存的界面？未保存的修改会丢失。')) load();
   });
   $('page-add').addEventListener('click', () => {
-    if (!draft || draft.pages.length >= 6) return;
+    if (!draft || draft.pages.length >= pageLimit) return;
     selected = crypto.randomUUID().replaceAll('-', '');
     draft.pages.push({ id: selected, kind: 'custom', name: '我的界面', color: '#151621', widgets: [] });
     render();

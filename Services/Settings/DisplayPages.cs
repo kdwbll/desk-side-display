@@ -11,6 +11,7 @@ sealed record DisplayWidget(Guid Id, string Type, string Name, string Size, stri
 
 sealed class DisplayPages
 {
+    public const int MaxPages = 10;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private static readonly string[] BuiltIns = ["lyrics", "photo", "clock", "hardware"];
     private static readonly string[] Metrics =
@@ -85,13 +86,13 @@ sealed class DisplayPages
     private static string? Validate(DisplayLayout value)
     {
         if (value.Revision < 0 || value.Revision == int.MaxValue ||
-            value.Pages is not { Length: >= 4 and <= 6 } || value.Pages.Any(page => page == null))
-            return "需要保留四个内置界面，界面总数最多为六个。";
+            value.Pages is not { Length: >= 4 and <= MaxPages } || value.Pages.Any(page => page == null))
+            return $"需要保留四个内置界面，界面总数最多为 {MaxPages} 个。";
         var pageIds = new HashSet<string>(StringComparer.Ordinal);
         var widgetIds = new HashSet<Guid>();
         foreach (var page in value.Pages)
         {
-            if (page.Id == null || !pageIds.Add(page.Id) || !Named(page.Name, 24) || !Color(page.Color) ||
+            if (page.Id == null || !pageIds.Add(page.Id) || !DisplayName(page.Name) || !Color(page.Color) ||
                 page.Widgets is not { Length: <= 8 } ||
                 (BuiltIns.Contains(page.Id) ? page.Kind != page.Id :
                     page.Kind != "custom" || !Guid.TryParseExact(page.Id, "N", out _)))
@@ -99,7 +100,7 @@ sealed class DisplayPages
             foreach (var widget in page.Widgets)
             {
                 if (widget == null || widget.Id == Guid.Empty || !widgetIds.Add(widget.Id) ||
-                    !Named(widget.Name, 24) || !Size(widget.Size) || !Color(widget.Color))
+                    !DisplayName(widget.Name) || !Size(widget.Size) || !Color(widget.Color))
                     return "组件的名称、尺寸、颜色或标识无效。";
                 var error = widget.Type switch
                 {
@@ -121,7 +122,7 @@ sealed class DisplayPages
 
     internal static string? ValidateManifest(WidgetManifest? manifest)
     {
-        if (manifest == null || manifest.Version is not (1 or 2) || !Named(manifest.Name, 24) ||
+        if (manifest == null || manifest.Version is not (1 or 2) || !DisplayName(manifest.Name) ||
             !Size(manifest.Size) || !Color(manifest.Color))
             return "自定义组件的版本、名称、尺寸或颜色无效。";
         if (manifest.Version == 2) return WidgetProtocol.Validate(manifest);
@@ -140,6 +141,7 @@ sealed class DisplayPages
     }
 
     private static bool Named(string? text, int limit) => !string.IsNullOrWhiteSpace(text) && text.Length <= limit;
+    private static bool DisplayName(string? text) => text is { Length: <= 24 };
     private static bool Size(string? value) => value is "small" or "medium" or "large";
     private static bool Color(string? value) => value is { Length: 7 } && ColorPattern.IsMatch(value);
 
