@@ -260,7 +260,12 @@
             "network.up",
             "weather.temperature",
             "weather.code",
-            "weather.wind"
+            "weather.wind",
+            "weather.humidity",
+            "weather.feels",
+            "weather.day",
+            "weather.place",
+            "weather.configured"
           ]
         },
         {
@@ -396,6 +401,7 @@
             "image",
             "files",
             "history",
+            "weather",
             "ring",
             "progress",
             "clock",
@@ -497,6 +503,10 @@
         "fileDisplay": {
           "enum": ["icon", "preview"],
           "description": "files 块的展示方式。icon 仅使用系统文件图标，preview 优先使用可用缩略图。"
+        },
+        "shape": {
+          "enum": ["card", "round", "capsule", "square"],
+          "description": "weather 块的形状。需声明 weather 权限，天气数据由系统自动绑定。"
         }
       }
     }
@@ -549,7 +559,12 @@
     "network.up": "number",
     "weather.temperature": "number",
     "weather.code": "number",
-    "weather.wind": "number"
+    "weather.wind": "number",
+    "weather.humidity": "number",
+    "weather.feels": "number",
+    "weather.day": "boolean",
+    "weather.place": "text",
+    "weather.configured": "boolean"
   },
   "x-permissions": {
     "clipboard": [

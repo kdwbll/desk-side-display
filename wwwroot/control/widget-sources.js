@@ -12,6 +12,7 @@
     for (const type of types) $('source-' + type).checked = config[type];
     $('source-latitude').value = config.latitude ?? '';
     $('source-longitude').value = config.longitude ?? '';
+    $('source-weather-place').value = config.weatherPlace ?? '';
     $('source-interfaces').value = JSON.stringify(config.interfaces ?? [], null, 2);
     $('source-apps').value = JSON.stringify(config.apps ?? {}, null, 2);
     feedKey = data.notificationKey;
@@ -34,6 +35,7 @@
       const config = Object.fromEntries(types.map(type => [type, $('source-' + type).checked]));
       config.latitude = coordinate('source-latitude');
       config.longitude = coordinate('source-longitude');
+      config.weatherPlace = $('source-weather-place').value.trim() || null;
       config.interfaces = JSON.parse($('source-interfaces').value || '[]');
       config.apps = JSON.parse($('source-apps').value || '{}');
       fill(await send('/api/widget-sources', JSON.stringify(config)));

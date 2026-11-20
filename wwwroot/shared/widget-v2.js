@@ -10,7 +10,8 @@ window.widgetV2 = (() => {
   };
   const units = {
     ...Object.fromEntries(Object.entries(metrics).map(([id, [, unit]]) => [id, unit])),
-    'power.percent': '%', 'volume.percent': '%', 'weather.temperature': '°C', 'weather.wind': ' km/h',
+    'power.percent': '%', 'volume.percent': '%', 'weather.temperature': '°C', 'weather.feels': '°C',
+    'weather.humidity': '%', 'weather.wind': ' km/h',
     'network.up': ' B/s', 'network.down': ' B/s', 'music.positionms': ' ms', 'music.durationms': ' ms'
   };
   const serverGroups = new Set(['clipboard', 'notification', 'window', 'volume', 'power', 'network', 'weather', 'api']);
@@ -176,6 +177,14 @@ window.widgetV2 = (() => {
         const angles = [30 * h + .5 * m, 6 * m + .1 * s, 6 * s];
         hands.forEach((hand, i) => { hand.style.rotate = angles[i] + 'deg'; });
         face.setAttribute('aria-label', raw('time', context, format));
+      } };
+    }
+    if (block.kind === 'weather') {
+      const card = deskWeather.make(block.shape ?? 'card');
+      box.append(card.element);
+      return { box, update(context) {
+        updateLabel(context);
+        card.update(context.data, format);
       } };
     }
     if (block.kind === 'history') {
@@ -364,6 +373,10 @@ window.widgetV2 = (() => {
         span: layout.columns ?? 2
       }] : [])
     ];
+    if (blocks.length === 1 && blocks[0].kind === 'weather') {
+      title.hidden = true;
+      tile.classList.add('widget-weather-only');
+    }
     for (const name of ['light', 'dark']) {
       const palette = manifest.theme?.[name] ?? {};
       for (const style of ['foreground', 'background', 'accent'])
@@ -440,6 +453,7 @@ window.widgetV2 = (() => {
     const keys = new Set(manifest.gauge ? [manifest.gauge] : []);
     const texts = [manifest.template, manifest.detail];
     for (const block of manifest.blocks ?? []) {
+      if (block.kind === 'weather') keys.add('weather.configured');
       if (block.source) keys.add(block.source);
       texts.push(block.text, block.label);
     }

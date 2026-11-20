@@ -8,11 +8,13 @@
   <link rel="stylesheet" href="/shared/lyric-appearance.css">
   <link rel="stylesheet" href="/shared/widgets.css">
   <link rel="stylesheet" href="/shared/widget-v2.css">
+  <link rel="stylesheet" href="/shared/widget-weather.css">
   <link rel="stylesheet" href="/control/pages.css">
   <script src="/control/control.js" defer></script>
   <script src="/shared/lyric-appearance.js" defer></script>
   <script src="/control/appearance-control.js" defer></script>
   <script src="/shared/widgets.js" defer></script>
+  <script src="/shared/widget-weather.js" defer></script>
   <script src="/shared/widget-v2.js" defer></script>
   <script src="/control/pages.js" defer></script>
   <script src="/control/widget-sources.js" defer></script>
@@ -79,10 +81,11 @@
           <label><input id="source-clipboard" type="checkbox"> 向 USB 副屏提供已绑定的剪贴板内容</label>
           <label><input id="source-window" type="checkbox"> 提供前台窗口标题和进程名</label>
           <label><input id="source-notifications" type="checkbox"> 接收本机通知桥的推送</label>
-          <label><input id="source-actions" type="checkbox"> 允许 USB 副屏执行已配置的自定义组件动作</label>
+          <label><input id="source-actions" type="checkbox"> 允许 USB 副屏控制音乐和执行已配置的组件动作</label>
           <div class="actions">
             <label>天气纬度 <input id="source-latitude" type="number" step="any" min="-90" max="90"></label>
             <label>天气经度 <input id="source-longitude" type="number" step="any" min="-180" max="180"></label>
+            <label>天气地点 <input id="source-weather-place" type="text" maxlength="48" placeholder="地点名称，可选"></label>
           </div>
           <p class="detail">填写经纬度后，天气组件会使用 <a href="https://open-meteo.com/en/terms" target="_blank" rel="noopener noreferrer">Open-Meteo 的非商业免费 API</a>。商用可注册自己的天气 JSON 接口。</p>
           <label for="source-interfaces">自定义 JSON 接口</label>

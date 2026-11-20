@@ -71,7 +71,8 @@ const phonePages = (() => {
     const references = custom.map(widget => [widget, widgetV2.references(widget.manifest)]);
     tiles = page.widgets.map(widget => widget.type === 'custom' && widget.manifest?.version === 2
       ? widgetV2.make(widget, capability && actionsEnabled ? runAction : null)
-      : deskWidgets.make(widget, capability && shortcutsEnabled ? press : null));
+      : deskWidgets.make(widget, capability && shortcutsEnabled ? press : null,
+        capability && actionsEnabled ? controlMusic : null));
     (expanded ? grid : strip).replaceChildren(...tiles.map(tile => tile.element));
     (expanded ? strip : grid).replaceChildren();
     grid.scrollTop = strip.scrollTop = 0;
@@ -211,6 +212,19 @@ const phonePages = (() => {
       dataDue = 0;
       announce('已执行 · ' + widget.name);
     } catch (error) { announce(error.message || '操作失败'); }
+  }
+
+  async function controlMusic(widget, action) {
+    if (!capability || !actionsEnabled) return;
+    try {
+      const response = await fetch('/api/widgets/' + widget.id + '/media/' + action, {
+        method: 'POST', headers: { 'X-DeskSide-Shortcut': capability }, signal: AbortSignal.timeout(3500)
+      });
+      if (!response.ok) {
+        const type = response.headers.get('Content-Type') ?? '';
+        throw Error(type.startsWith('text/plain') ? await response.text() : '音乐控制暂不可用。');
+      }
+    } catch (error) { announce(error.message || '音乐控制失败'); }
   }
 
   function announce(message) {

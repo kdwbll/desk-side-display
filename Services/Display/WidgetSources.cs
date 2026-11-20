@@ -7,7 +7,7 @@ using System.Text.Json.Serialization;
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 sealed record WidgetSourceConfig(bool Clipboard = false, bool Notifications = false, bool Window = false,
     bool Actions = false, double? Latitude = null, double? Longitude = null,
-    WidgetInterface[]? Interfaces = null, Dictionary<string, string>? Apps = null);
+    WidgetInterface[]? Interfaces = null, Dictionary<string, string>? Apps = null, string? WeatherPlace = null);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 sealed record WidgetInterface(string Id, string Url, int RefreshMs = 10000);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
@@ -116,14 +116,20 @@ sealed class WidgetSources : IDisposable
                 values["notification.count"] = notificationCount;
             }
         }
+        if (groups.Contains("weather"))
+            values["weather.configured"] = options.Latitude.HasValue && options.Longitude.HasValue;
         if (groups.Contains("weather") && options.Latitude is double lat && options.Longitude is double lon)
         {
             var uri = new Uri(FormattableString.Invariant(
-                $"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,weather_code,wind_speed_10m"));
+                $"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m,apparent_temperature,is_day"));
             var data = await Document(uri, 300000, token);
             values["weather.temperature"] = Extract(data, ["current", "temperature_2m"]);
             values["weather.code"] = Extract(data, ["current", "weather_code"]);
             values["weather.wind"] = Extract(data, ["current", "wind_speed_10m"]);
+            values["weather.humidity"] = Extract(data, ["current", "relative_humidity_2m"]);
+            values["weather.feels"] = Extract(data, ["current", "apparent_temperature"]);
+            values["weather.day"] = Extract(data, ["current", "is_day"]) is double day ? day == 1 : null;
+            values["weather.place"] = string.IsNullOrWhiteSpace(options.WeatherPlace) ? null : options.WeatherPlace;
         }
         if (groups.Contains("api"))
         {
@@ -191,6 +197,7 @@ sealed class WidgetSources : IDisposable
     {
         if ((value.Latitude == null) != (value.Longitude == null) ||
             value.Latitude is < -90 or > 90 || value.Longitude is < -180 or > 180) return "请填写有效的天气经纬度。";
+        if (value.WeatherPlace?.Length > 48) return "天气地点名称最多 48 个字符。";
         if (value.Interfaces is { Length: > 8 } || value.Apps is { Count: > 8 }) return "接口与应用别名各最多 8 个。";
         var ids = new HashSet<string>(StringComparer.Ordinal);
         foreach (var endpoint in value.Interfaces ?? [])

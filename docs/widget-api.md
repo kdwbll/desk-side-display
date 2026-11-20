@@ -41,7 +41,7 @@
 | `window.*` | Windows 前台窗口标题和进程名 | 声明 `window`，并在面板开启 |
 | `volume.*` | Windows 默认输出设备的音量、静音状态 | — |
 | `network.*`、`power.*` | 网络名称、联通状态、收发速度（B/s）、电量、供电与充电状态 | — |
-| `weather.*` | 当前温度、WMO 天气代码、风速 | 声明 `weather`，并在面板填写经纬度 |
+| `weather.*` | 当前温度、体感温度、WMO 天气代码、风速、湿度、昼夜状态和地点名称 | 声明 `weather`，并在面板填写经纬度 |
 | `api.<别名>.<路径>` | 用户注册接口的 JSON 标量。可用 `api.desk.rooms.0.temperature` 访问数组元素 | 声明 `interfaces`，并在面板注册别名 |
 
 完整字段和类型可在 [v2 Schema](../wwwroot/shared/widget-v2.schema.json) 的 `x-data-types` 查询。`valueType` 可约束接口字段，类型不符时按缺值处理。缺值默认显示 `—`，可用 `fallback` 改写。`maxLength` 截断文字并补省略号，`digits` 和 `unit` 覆盖数字精度和单位。`refreshMs` 可设为 500–60000 毫秒。同页的数据请求按已绑定组件中最短的间隔轮询，远程接口按其注册的刷新下限缓存。旧接口字段缺失或异常时会显示缺值。
@@ -86,6 +86,8 @@
 ## 兼容与扩展
 
 v1 导入和已保存的 v1 组件可继续使用。要迁移，可在「编辑组件 JSON」中把 `version` 改为 `2`，加可选的 `"migratedFrom": 1`，保留原模板，再按需添加布局块。 `widget` 和 `kind` 是可选的社区组件标识与分类。带 `x-` 前缀的顶层元数据会随组件保存，并可由社区扩展读取。自定义数据提供者可以先用注册接口接入。要增加原生来源或布局类型，可分别改动 `WidgetSources`、`WidgetProtocol`、`widget-v2.js` 和 Schema。
+
+保存界面时，自定义组件会同步加入 Windows 面板的可复用列表。同一个 `widget` 标识共用一份定义，每次添加会创建独立的组件实例。随附的[天气组件](../wwwroot/shared/examples/weather-widget.json)用 `kind: "weather"` 的布局块，把 `shape` 设为 `card`、`round`、`capsule` 或 `square`。动画来自当前天气与系统的减少动态效果设置。
 
 ## v1 示例
 

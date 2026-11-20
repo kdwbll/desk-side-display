@@ -28,7 +28,7 @@ sealed record WidgetBlock(string Kind, string? Source = null, string? Text = nul
     string? Icon = null, string? Fallback = null, string? ValueType = null, int? MaxLength = null,
     int? Span = null, int? Rows = null, string? Align = null, double? FontScale = null, double? Min = null,
     double? Max = null, WidgetFormat? Format = null, WidgetAction? Action = null,
-    bool? HideWhenEmpty = null, string? FileDisplay = null);
+    bool? HideWhenEmpty = null, string? FileDisplay = null, string? Shape = null);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 sealed record WidgetLayout(int? Columns = null, int? Gap = null, int? Padding = null, string? Align = null,
     bool? FirstPresent = null);
@@ -70,7 +70,9 @@ static class WidgetProtocol
         ["volume.percent"] = "number", ["volume.muted"] = "boolean", ["power.percent"] = "number",
         ["power.plugged"] = "boolean", ["power.charging"] = "boolean", ["network.online"] = "boolean",
         ["network.name"] = "text", ["network.down"] = "number", ["network.up"] = "number",
-        ["weather.temperature"] = "number", ["weather.code"] = "number", ["weather.wind"] = "number"
+        ["weather.temperature"] = "number", ["weather.code"] = "number", ["weather.wind"] = "number",
+        ["weather.humidity"] = "number", ["weather.feels"] = "number", ["weather.day"] = "boolean",
+        ["weather.place"] = "text", ["weather.configured"] = "boolean"
     };
     internal static readonly string[] Permissions = ["clipboard", "notifications", "window", "weather", "interfaces", "actions"];
     internal static readonly string[] ServerGroups =
@@ -121,6 +123,9 @@ static class WidgetProtocol
         if (manifest.Gauge != null) yield return manifest.Gauge;
         foreach (var block in manifest.Blocks ?? [])
         {
+            if (block.Kind == "weather")
+                foreach (var weather in BuiltInTypes.Keys.Where(key => key.StartsWith("weather.", StringComparison.Ordinal)))
+                    yield return weather;
             if (block.Source != null) yield return block.Source;
             texts.Add(block.Text);
             texts.Add(block.Label);
@@ -152,7 +157,7 @@ static class WidgetProtocol
 
     private static bool ValidBlock(WidgetBlock block, int columns)
     {
-        if (block.Kind is not ("text" or "value" or "image" or "files" or "ring" or "progress" or "clock" or "button" or "icon" or "history") ||
+        if (block.Kind is not ("text" or "value" or "image" or "files" or "ring" or "progress" or "clock" or "button" or "icon" or "history" or "weather") ||
             !ValidTemplate(block.Text, 260) || !ValidTemplate(block.Label, 100) || TooLong(block.Fallback, 80) ||
             TooLong(block.Icon, 30) || block.ValueType is not (null or "text" or "number" or "boolean" or "image" or "files") ||
             block.MaxLength is < 1 or > 2000 || block.Span is < 1 || block.Span > columns ||
@@ -161,7 +166,8 @@ static class WidgetProtocol
             (block.Max is double max && !double.IsFinite(max)) ||
             (block.Min != null && block.Max != null && block.Min >= block.Max) ||
             (block.Source != null && !Known(block.Source)) ||
-            (block.FileDisplay != null && (block.Kind != "files" || block.FileDisplay is not ("icon" or "preview"))))
+            (block.FileDisplay != null && (block.Kind != "files" || block.FileDisplay is not ("icon" or "preview"))) ||
+            (block.Shape != null && (block.Kind != "weather" || block.Shape is not ("card" or "round" or "capsule" or "square"))))
             return false;
         if (block.Action != null && (!ValidAction(block.Action) || !ValidBlockAction(block)))
             return false;
@@ -176,6 +182,7 @@ static class WidgetProtocol
         {
             "image" or "files" or "ring" or "progress" or "value" => block.Source != null,
             "history" => block.Source == "clipboard.history",
+            "weather" => block.Source == null,
             "button" => ValidAction(block.Action) && (!string.IsNullOrWhiteSpace(block.Text) || !string.IsNullOrWhiteSpace(block.Label)),
             _ => true
         };

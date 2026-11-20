@@ -114,6 +114,7 @@ app.MapGet("/api/state", (HttpContext context, AppleMusic player, PanelSettings 
         song = state.Song,
         state.Playing,
         state.Rate,
+        playback = new { state.CanToggle, state.CanPrevious, state.CanNext },
         positionMs = position,
         lyricsStatus = position == null && state.Song != null ? "no-timeline" : labels.Status,
         lyricTimingId = labels.TimingId,
@@ -134,7 +135,8 @@ app.MapGet("/api/pages", (HttpContext context, DisplayPages pages, UsbBridge usb
     var actionsEnabled = sources.Read().Actions;
     var capability = context.Connection.LocalPort == displayPort && (layout.ShortcutsEnabled || actionsEnabled) && usb.Status == "ready"
         ? shortcutCapability : null;
-    return Results.Ok(new { layout, shortcutCapability = capability, actionsEnabled, sourcesRevision = sources.Revision });
+    var clientLayout = context.Connection.LocalPort == controlPort ? layout : layout with { WidgetLibrary = null };
+    return Results.Ok(new { layout = clientLayout, shortcutCapability = capability, actionsEnabled, sourcesRevision = sources.Revision });
 });
 
 app.MapPost("/api/pages", (DisplayLayout proposed, DisplayPages pages) =>
@@ -194,6 +196,17 @@ app.MapPost("/api/widgets/{id:guid}/action/{trigger}", async (Guid id, string tr
     if (action == null) return Results.NotFound();
     var error = await sources.Act(action, music, keyboard, clipboardVersion, historyItem, token);
     return error == null ? Results.NoContent() : Error(error, 409);
+});
+
+app.MapPost("/api/widgets/{id:guid}/media/{action}", async (Guid id, string action, HttpContext context,
+    DisplayPages pages, WidgetSources sources, UsbBridge usb, AppleMusic music) =>
+{
+    if (context.Connection.LocalPort != displayPort || usb.Status != "ready" || !sources.Read().Actions)
+        return Results.StatusCode(403);
+    if (action is not ("previous" or "toggle" or "next") ||
+        !pages.Read().Pages.SelectMany(page => page.Widgets).Any(widget => widget.Id == id && widget.Type == "music"))
+        return Results.NotFound();
+    return await music.ControlAsync(action) ? Results.NoContent() : Error("Apple Music 暂不可控制。", 409);
 });
 
 app.MapPost("/api/widgets/{id:guid}/press", (Guid id, HttpContext context, DisplayPages pages,

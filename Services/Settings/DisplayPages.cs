@@ -1,7 +1,10 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 
-sealed record DisplayLayout(int Revision, bool ShortcutsEnabled, DisplayPage[] Pages);
+sealed record DisplayLayout(int Revision, bool ShortcutsEnabled, DisplayPage[] Pages,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WidgetManifest[]? WidgetLibrary = null);
 sealed record DisplayPage(string Id, string Name, string Kind, string Color, DisplayWidget[] Widgets);
 sealed record DisplayWidget(Guid Id, string Type, string Name, string Size, string Color,
     string? Text = null, string? Metric = null, string? Keys = null, WidgetManifest? Manifest = null);
@@ -30,7 +33,11 @@ sealed class DisplayPages
         try
         {
             var saved = JsonSerializer.Deserialize<DisplayLayout>(File.ReadAllBytes(path), Json);
-            if (saved != null && Validate(saved) == null) layout = saved;
+            if (saved != null && Validate(saved) == null)
+            {
+                var known = (saved.WidgetLibrary ?? []).Where(item => ValidateManifest(item) == null);
+                layout = saved with { WidgetLibrary = MergeLibrary(known, saved.Pages) };
+            }
         }
         catch (JsonException) { }
     }
@@ -48,7 +55,7 @@ sealed class DisplayPages
                 return (null, "页面已在另一窗口更新。请重新读取后再修改。", true);
             var error = Validate(next);
             if (error != null) return (null, error, false);
-            var updated = next with { Revision = layout.Revision + 1 };
+            var updated = next with { Revision = layout.Revision + 1, WidgetLibrary = MergeLibrary(layout.WidgetLibrary ?? [], next.Pages) };
             var bytes = JsonSerializer.SerializeToUtf8Bytes(updated, Json);
             if (bytes.Length > 1024 * 1024) return (null, "界面配置总大小超过 1 MB。", false);
             PanelSettings.Save(path, bytes);
@@ -56,6 +63,24 @@ sealed class DisplayPages
             return (updated, null, false);
         }
     }
+
+    private static WidgetManifest[] MergeLibrary(IEnumerable<WidgetManifest> known, DisplayPage[] pages)
+    {
+        var library = new Dictionary<string, WidgetManifest>(StringComparer.Ordinal);
+        foreach (var item in known) library[LibraryKey(item)] = item;
+        foreach (var widget in pages.SelectMany(page => page.Widgets)
+                     .Where(widget => widget.Type == "custom" && widget.Manifest != null))
+        {
+            var item = widget.Manifest! with { Name = widget.Name, Size = widget.Size, Color = widget.Color };
+            library[LibraryKey(item)] = item;
+        }
+        return library.Values.ToArray();
+    }
+
+    private static string LibraryKey(WidgetManifest item) =>
+        !string.IsNullOrWhiteSpace(item.Widget) ? "widget:" + item.Widget.Trim() :
+        Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(
+            item with { Size = "small", Color = "#000000" }, Json)));
 
     private static string? Validate(DisplayLayout value)
     {

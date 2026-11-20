@@ -75,7 +75,8 @@ window.deskWidgets = (() => {
       Object.hasOwn(metrics, key) ? metricValue(key, values) : tokens[key] ?? '—');
   }
 
-  function make(widget, press) {
+  function make(widget, press, mediaControl) {
+    if (widget.type === 'music') return makeMusic(widget, mediaControl);
     const metric = widget.type === 'metric' ? widget.metric :
       widget.type === 'custom' ? widget.manifest?.gauge : null;
     const isButton = widget.type === 'shortcut';
@@ -112,10 +113,6 @@ window.deskWidgets = (() => {
           main = dateFormat.format(now);
           sub = String(now.getFullYear());
           break;
-        case 'music':
-          main = context.state?.song?.title || '未播放';
-          sub = context.state?.song?.artist || '';
-          break;
         case 'text':
           main = widget.text;
           break;
@@ -136,6 +133,69 @@ window.deskWidgets = (() => {
         const ratio = Number.isFinite(hw[metric]) && divisor > 0 ? Math.min(1, Math.max(0, hw[metric] / divisor)) : 0;
         face.style.setProperty('--widget-progress', Math.round(ratio * 1000) / 10 + '%');
       }
+    }
+    return { element: tile, update };
+  }
+
+  function makeMusic(widget, control) {
+    const tile = node('article', 'widget widget-' + widget.size + ' widget-music');
+    tile.style.setProperty('--widget-accent', widget.color);
+    const cover = node('div', 'widget-music-cover');
+    const image = node('img');
+    image.alt = '';
+    image.hidden = true;
+    image.addEventListener('load', () => { image.hidden = false; });
+    image.addEventListener('error', () => { image.hidden = true; });
+    cover.append(image);
+    const title = node('span', 'widget-music-title');
+    const bar = node('div', 'widget-music-progress');
+    bar.setAttribute('role', 'progressbar');
+    bar.setAttribute('aria-label', '播放进度');
+    const fill = node('span');
+    bar.append(fill);
+    const transport = node('div', 'widget-music-controls');
+    const labels = { previous: '上一首', toggle: '播放', next: '下一首' };
+    const buttons = Object.entries(labels).map(([action, label]) => {
+      const button = node('button', 'widget-music-button');
+      button.type = 'button';
+      button.dataset.action = action;
+      button.setAttribute('aria-label', label);
+      button.disabled = true;
+      const icon = node('i', 'widget-music-icon');
+      icon.setAttribute('aria-hidden', 'true');
+      button.append(icon);
+      if (control) button.addEventListener('click', async () => {
+        pending = true;
+        for (const item of buttons) item.disabled = true;
+        try { await control(widget, action); }
+        finally { pending = false; }
+      });
+      return button;
+    });
+    transport.append(...buttons);
+    tile.append(cover, title, bar, transport);
+    let url;
+    let pending = false;
+
+    function update(context) {
+      const state = context.state;
+      if (state?.cover !== url) {
+        url = state?.cover;
+        image.hidden = true;
+        if (url) image.src = url;
+        else image.removeAttribute('src');
+      }
+      replaceText(title, state?.song?.title || '未播放');
+      const ratio = state?.durationMs > 0 && Number.isFinite(state.positionMs)
+        ? Math.max(0, Math.min(1, state.positionMs / state.durationMs)) : 0;
+      fill.style.setProperty('--music-progress', ratio);
+      bar.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
+      const capabilities = state?.playback ?? {};
+      for (const [index, flag] of ['canPrevious', 'canToggle', 'canNext'].entries()) {
+        buttons[index].disabled = !control || pending || !capabilities[flag];
+      }
+      buttons[1].dataset.playing = String(Boolean(state?.playing));
+      buttons[1].setAttribute('aria-label', state?.playing ? '暂停' : '播放');
     }
     return { element: tile, update };
   }

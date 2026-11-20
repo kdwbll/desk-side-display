@@ -24,9 +24,13 @@
       values: { 'cpu.usage': 33, 'cpu.temperature': 65, 'gpu.usage': 6, 'gpu.temperature': 52,
         'gpu.power': 41, 'gpu.clock': 2520, 'gpu.fan': 34, 'ram.used': 23, 'ram.total': 64, 'ram.usage': 36 },
       gpuName: 'GPU 演示'
-    }
+    },
+    data: { 'weather.temperature': 23, 'weather.feels': 25, 'weather.code': 2, 'weather.wind': 12,
+      'weather.humidity': 64, 'weather.day': true, 'weather.place': '示例地点', 'weather.configured': true }
   };
   const sizes = [['small', '小'], ['medium', '中'], ['large', '大']];
+  const weatherShapes = [['card', '卡片'], ['round', '圆形'], ['capsule', '胶囊'], ['square', '方形']];
+  const componentFiles = ['clipboard-widget', 'weather-widget'];
   const screenshotKeys = [
     ['Win+Shift+S', '区域截图 · Win+Shift+S'],
     ['PrintScreen', '截屏键 · PrintScreen'],
@@ -38,6 +42,7 @@
   let selected;
   let preview;
   let replacing;
+  let bundled = [];
 
   const currentPage = () => draft.pages.find(page => page.id === selected);
   const dirty = () => JSON.stringify(draft) !== original;
@@ -112,6 +117,28 @@
     }));
   }
 
+  function customChoices() {
+    const choices = new Map();
+    const put = manifest => {
+      const key = manifest.widget?.trim() || JSON.stringify(exportManifest({ ...manifest, size: null, color: null }));
+      choices.set(key, manifest);
+    };
+    [...bundled, ...(draft.widgetLibrary ?? [])].forEach(put);
+    for (const widget of draft.pages.flatMap(page => page.widgets)) {
+      if (widget.type === 'custom') put({ ...widget.manifest, name: widget.name, size: widget.size, color: widget.color });
+    }
+    return [...choices.values()];
+  }
+
+  async function loadBundled() {
+    const results = await Promise.allSettled(componentFiles.map(async name => {
+      const response = await fetch('/shared/examples/' + name + '.json', { signal: AbortSignal.timeout(3500) });
+      if (!response.ok) throw Error('Unable to load ' + name);
+      return response.json();
+    }));
+    bundled = results.filter(result => result.status === 'fulfilled').map(result => result.value);
+  }
+
   function render() {
     renderOrder();
     const page = currentPage();
@@ -130,10 +157,20 @@
     }));
     const toolbar = node('div', 'actions widget-toolbar');
     const type = select(Object.entries(kinds).filter(([key]) => key !== 'custom'), 'clock');
+    const templates = customChoices();
+    if (templates.length) {
+      const group = node('optgroup');
+      group.label = '可复用组件';
+      group.append(...templates.map((manifest, index) => new Option(manifest.name, 'template-' + index)));
+      type.append(group);
+    }
     type.setAttribute('aria-label', '组件类型');
     const add = button('添加组件', () => {
       const key = type.value;
-      const widget = { id: crypto.randomUUID(), type: key, name: kinds[key], size: 'small', color: '#82d9ce' };
+      const manifest = key.startsWith('template-') ? structuredClone(templates[Number(key.slice(9))]) : null;
+      const widget = manifest
+        ? { id: crypto.randomUUID(), type: 'custom', name: manifest.name, size: manifest.size, color: manifest.color, manifest }
+        : { id: crypto.randomUUID(), type: key, name: kinds[key], size: 'small', color: '#82d9ce' };
       if (key === 'text') widget.text = '写点什么';
       if (key === 'metric') widget.metric = 'cpu.usage';
       if (key === 'shortcut') widget.keys = '';
@@ -193,6 +230,10 @@
         entries: [['', '无'], ...Object.entries(metrics).map(([id, info]) => [id, info[0]])]
       });
     }
+    const weather = widget.manifest?.blocks?.find(block => block.kind === 'weather');
+    if (weather) field(fields, '天气形状', weather.shape ?? 'card', value => {
+      weather.shape = value;
+    }, { entries: weatherShapes });
     if (widget.type === 'custom') fields.append(button('编辑组件 JSON', () => {
       replacing = { id: widget.id, page: page.id };
       const manifest = { ...widget.manifest, name: widget.name, color: widget.color, size: widget.size };
@@ -213,7 +254,9 @@
   async function load() {
     editor.disabled = true;
     try {
-      const response = await fetch('/api/pages', { signal: AbortSignal.timeout(3500) });
+      const [response] = await Promise.all([
+        fetch('/api/pages', { signal: AbortSignal.timeout(3500) }), loadBundled()
+      ]);
       if (!response.ok) throw Error('无法读取界面。');
       draft = (await response.json()).layout;
       original = JSON.stringify(draft);

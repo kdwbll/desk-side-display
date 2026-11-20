@@ -13,7 +13,7 @@
 #dashboard-device, #dashboard-empty { color: #ababba; font-size: .72em; }
 #dashboard-device { text-align: end; }
 #dashboard-widgets { flex: 1; min-height: 0; grid-auto-rows: minmax(7.5em, 1fr); overflow: auto; }
-#dashboard-widgets:has(.widget-v2), #page-widgets:has(.widget-v2) { grid-auto-rows: max-content; }
+#dashboard-widgets:has(.widget-v2, .widget-music), #page-widgets:has(.widget-v2, .widget-music) { grid-auto-rows: max-content; }
 #dashboard-widgets, #page-widgets { touch-action: pan-y; }
 #dashboard-empty { margin: auto; }
 #page-widgets {
@@ -24,6 +24,7 @@
   font-size: clamp(10px, 1.7vw, 17px);
 }
 #page-widgets .widget { border-radius: .65em; }
+#page-widgets .widget-music-cover { width: min(80%, 4.2em); }
 #page-widgets .widget-gauge { width: min(100%, 3.5em); }
 .page-footer {
   position: absolute;

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "widget": "desk.weather",
+  "kind": "weather",
+  "name": "天气",
+  "size": "medium",
+  "color": "#8ed9ff",
+  "permissions": ["weather"],
+  "refreshMs": 10000,
+  "layout": { "columns": 1, "gap": 0, "padding": 0 },
+  "blocks": [
+    { "kind": "weather", "shape": "card" }
+  ]
+}
