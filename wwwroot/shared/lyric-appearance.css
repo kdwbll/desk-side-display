@@ -26,16 +26,15 @@
   width: 164%;
   height: 180%;
   opacity: 0;
-  filter: blur(clamp(18px, 10cqh, 72px));
-  animation: album-drift 28s ease-in-out infinite alternate;
-  transition: opacity 1.2s ease;
+  filter: blur(clamp(18px, 12cqh, 84px));
+  animation: album-drift 14s ease-in-out infinite alternate;
+  transition: opacity 1.6s ease-in-out;
 }
 .album-flow canvas.visible { opacity: 1; }
 .album-flow::after { content: ''; position: absolute; inset: 0; background: var(--flow-veil); }
 @keyframes album-drift {
-  0% { transform: translate(-6%, -6%) rotate(-6deg); }
-  48% { transform: translate(6%, 4%) rotate(4deg) scale(1.06); }
-  100% { transform: translate(-1%, 8%) rotate(-2deg) scale(1.03); }
+  from { transform: translate(-9%, -5%) rotate(-5deg) scale(1.04); }
+  to { transform: translate(9%, 6%) rotate(5deg) scale(1.07); }
 }
 @media (prefers-reduced-motion: reduce) {
   .album-flow canvas { animation: none; transition: none; }
