@@ -5,6 +5,9 @@ const appearanceFields = document.getElementById('appearance-fields');
 const presetFields = document.getElementById('appearance-presets');
 const textColor = document.getElementById('lyric-text-color');
 const backgroundColor = document.getElementById('lyric-background-color');
+const backgroundMode = document.getElementById('lyric-background-mode');
+const updatePreviewFlow = createAlbumFlow(preview);
+document.addEventListener('playback-cover', event => updatePreviewFlow(event.detail));
 const opacity = document.getElementById('lyric-opacity');
 const blur = document.getElementById('lyric-blur');
 const opacityValue = document.getElementById('lyric-opacity-value');
@@ -26,12 +29,13 @@ let staged;
 let writeQueue = Promise.resolve();
 
 function readAppearance() {
-  return { textColor: textColor.value, backgroundColor: backgroundColor.value,
+  return { textColor: textColor.value, backgroundColor: backgroundColor.value, backgroundMode: backgroundMode.value,
     contextOpacity: opacity.valueAsNumber, blur: blur.valueAsNumber };
 }
 
 function updatePreview(appearance) {
   applyLyricAppearance(preview, appearance);
+  updatePreviewFlow(state?.cover);
   opacityValue.textContent = appearance.contextOpacity + '%';
   blurValue.textContent = appearance.blur.toFixed(1) + ' px';
 }
@@ -39,6 +43,7 @@ function updatePreview(appearance) {
 function loadAppearance(appearance) {
   textColor.value = appearance.textColor;
   backgroundColor.value = appearance.backgroundColor;
+  backgroundMode.value = appearance.backgroundMode ?? 'fixed';
   opacity.value = appearance.contextOpacity;
   blur.value = appearance.blur;
   updatePreview(appearance);

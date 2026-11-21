@@ -7,6 +7,7 @@ const title = document.getElementById('track');
 const artist = document.getElementById('artist');
 const lyricStack = document.querySelector('.lyric-stack');
 const lyricView = document.getElementById('lyrics');
+const updateAlbumFlow = createAlbumFlow(lyricView);
 const lyricOffsets = [-2, -1, 0, 1, 2];
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const lyricNotes = {
@@ -285,6 +286,7 @@ async function refreshState() {
         appearanceKey = nextAppearance;
       }
       setImage('cover', state.cover);
+      updateAlbumFlow(state.cover, document.getElementById('cover'));
       setImage('wallpaper', state.wallpaper);
     } else delay = 650;
   } catch {
