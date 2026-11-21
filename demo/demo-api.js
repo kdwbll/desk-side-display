@@ -58,7 +58,7 @@ export async function createDemo(notify) {
   let layout = await initialLayout();
   const media = new Map(Object.entries(samples));
   let preferences = { mode: 'auto', idle: 'clock' };
-  let appearance = { textColor: '#ffe7cd', backgroundColor: '#241f2c', contextOpacity: 28, blur: 0.8 };
+  let appearance = { textColor: '#ffe7cd', backgroundColor: '#241f2c', backgroundMode: 'album', contextOpacity: 28, blur: 0.8 };
   let presets = [{ id: crypto.randomUUID(), name: '暮色', appearance }];
   let sources = { actions: true, clipboard: true, notifications: false, window: false, interfaces: [], apps: {} };
   let sourcesRevision = 0;

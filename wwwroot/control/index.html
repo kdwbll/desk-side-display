@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="/control/pages.css">
   <script src="/control/control.js" defer></script>
   <script src="/shared/lyric-appearance.js" defer></script>
+  <script src="/shared/album-flow.js" defer></script>
   <script src="/control/appearance-control.js" defer></script>
   <script src="/shared/widgets.js" defer></script>
   <script src="/shared/widget-weather.js" defer></script>
@@ -123,6 +124,11 @@
         <fieldset class="appearance-fields" id="appearance-fields" aria-label="歌词外观设置" disabled>
           <label for="lyric-text-color">歌词颜色</label>
           <input id="lyric-text-color" type="color" value="#f8f1e8">
+          <label for="lyric-background-mode">背景样式</label>
+          <select id="lyric-background-mode">
+            <option value="fixed">固定底色</option>
+            <option value="album">专辑流光</option>
+          </select>
           <label for="lyric-background-color">背景颜色</label>
           <input id="lyric-background-color" type="color" value="#171923">
           <label for="lyric-opacity">周围歌词不透明度 <output id="lyric-opacity-value" for="lyric-opacity">29%</output></label>

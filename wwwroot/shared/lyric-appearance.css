@@ -1,4 +1,7 @@
 .lyric-view {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   --foreground: #f8f1e8;
   --lyric-background: #171923;
   --context-opacity: .29;
@@ -6,6 +9,36 @@
   color: var(--foreground);
   background-color: var(--lyric-background);
   background-image: radial-gradient(ellipse at 10% 0%, color-mix(in srgb, var(--lyric-background), #a489bf 20%), transparent 76%);
+}
+.album-flow {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  container-type: size;
+  pointer-events: none;
+}
+.album-flow[hidden] { display: none; }
+.album-flow canvas {
+  position: absolute;
+  left: -32%;
+  top: -40%;
+  width: 164%;
+  height: 180%;
+  opacity: 0;
+  filter: blur(clamp(18px, 10cqh, 72px));
+  animation: album-drift 28s ease-in-out infinite alternate;
+  transition: opacity 1.2s ease;
+}
+.album-flow canvas.visible { opacity: 1; }
+.album-flow::after { content: ''; position: absolute; inset: 0; background: var(--flow-veil); }
+@keyframes album-drift {
+  0% { transform: translate(-6%, -6%) rotate(-6deg); }
+  48% { transform: translate(6%, 4%) rotate(4deg) scale(1.06); }
+  100% { transform: translate(-1%, 8%) rotate(-2deg) scale(1.03); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .album-flow canvas { animation: none; transition: none; }
 }
 .lyric-view .adjacent {
   color: var(--foreground);

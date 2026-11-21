@@ -119,6 +119,7 @@ async function fetchState() {
   const response = await fetch('/api/state', { signal: AbortSignal.timeout(2500) });
   if (!response.ok) throw Error('无法读取副屏状态。');
   state = await response.json();
+  document.dispatchEvent(new CustomEvent('playback-cover', { detail: state.cover }));
   render();
 }
 
