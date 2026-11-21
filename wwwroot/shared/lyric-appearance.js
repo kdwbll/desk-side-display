@@ -5,12 +5,7 @@ function applyLyricAppearance(view, appearance) {
   const blend = appearance.flowBlend ?? 0;
   view.dataset.flowBlend = blend;
   view.style.setProperty('--flow-blur-scale', 1 + blend / 150);
-  const speed = String(appearance.flowSpeed ?? 1);
-  if (view.dataset.flowSpeed !== speed) {
-    view.dataset.flowSpeed = speed;
-    const layer = view.querySelector('.album-flow');
-    if (layer) setAlbumDriftSpeed(layer, Number(speed));
-  }
+  view.dataset.flowSpeed = appearance.flowSpeed ?? 1;
   const channels = appearance.textColor.match(/[0-9a-f]{2}/gi).map(value => parseInt(value, 16) / 255);
   const light = channels.map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);
   view.style.setProperty('--flow-veil', light[0]*.2126 + light[1]*.7152 + light[2]*.0722 > .179
