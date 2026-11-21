@@ -50,7 +50,7 @@
 .lyric-unit {
   display: inline-block;
   max-width: 100%;
-  transform: translateY(calc(-.066667em * var(--lyric-lift, 0))) scaleY(calc(1 + .025 * var(--lyric-lift, 0)));
+  transform: translateY(calc(-.044444em * var(--lyric-lift, 0))) scaleY(calc(1 + .025 * var(--lyric-lift, 0)));
 }
 .lyric-unit-lifted {
   filter: blur(calc(.012em * var(--lyric-lift)));
