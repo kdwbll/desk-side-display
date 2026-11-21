@@ -38,7 +38,7 @@ let clockMinute;
 let fills = [];
 let waveUnits = [];
 let lyricWaves = [];
-const lyricWaveRadius = 2;
+const lyricWaveRadius = 1.5;
 const lyricWaveTailMs = 180;
 let transitions = [];
 let departingLine;
@@ -265,7 +265,7 @@ function renderTimedLine(row, line) {
     row.append(unit);
     const start = fills[first].start;
     const end = fills.at(-1).end;
-    units.push({ unit, start, end, amount: 0 });
+    units.push({ unit, start, end, segments: fills.slice(first), amount: 0 });
   }
   appendRange(row, position, line.text.length);
   return { fills, units };
@@ -307,6 +307,20 @@ function updateFills(position) {
   }
 }
 
+function sungMidpoint(item) {
+  if (item.segments.length > 1) {
+    // Find the timed syllable that contains the visual center of an English word.
+    let remaining = item.unit.getBoundingClientRect().width / 2;
+    for (const segment of item.segments) {
+      const width = segment.span.getBoundingClientRect().width;
+      if (width > 0 && remaining <= width)
+        return segment.start + (segment.end - segment.start) * remaining / width;
+      remaining -= width;
+    }
+  }
+  return (item.start + item.end) / 2;
+}
+
 function buildLyricWaves(units) {
   const waves = [];
   let run = [];
@@ -325,7 +339,7 @@ function buildLyricWaves(units) {
     }
     const width = Math.max(.35, item.unit.offsetWidth / fontSize);
     item.center = distance + width / 2;
-    item.peakAt = Math.max((item.start + item.end) / 2, (run.at(-1)?.peakAt ?? -Infinity) + 1);
+    item.peakAt = Math.max(sungMidpoint(item), (run.at(-1)?.peakAt ?? -Infinity) + 1);
     run.push(item);
     distance += width;
   }
@@ -358,6 +372,7 @@ function updateLyricWave(position) {
       const amount = Math.round(height * 1000) / 1000;
       if (amount === item.amount) continue;
       item.unit.style.setProperty('--lyric-lift', amount);
+      if ((amount > 0) !== (item.amount > 0)) item.unit.classList.toggle('lyric-unit-lifted', amount > 0);
       item.amount = amount;
     }
   }
