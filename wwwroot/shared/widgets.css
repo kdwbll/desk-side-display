@@ -1,13 +1,15 @@
 :root {
-  --dashboard-light: radial-gradient(ellipse at 1% 4%, #7089d43d, transparent 56%),
-    radial-gradient(ellipse at 95% 100%, #9976a62e, transparent 53%);
+  --dashboard-light:
+    radial-gradient(ellipse at 96% 145%, transparent 44%, #9a80cb45 55%, #c4a7e42b 59%, transparent 68%),
+    radial-gradient(ellipse at 12% -48%, #527d83a8 25%, #567a9270 43%, #9fbad44a 50%, transparent 62%),
+    radial-gradient(ellipse at 70% 100%, #6d587842, transparent 54%);
 }
 .widget {
   --widget-accent: #82d9ce;
   --tile-tint: var(--widget-accent);
   --tile-light: radial-gradient(ellipse at 4% -35%, #ffffff36, transparent 66%),
     radial-gradient(ellipse at 105% 110%, color-mix(in srgb, var(--tile-tint) 16%, transparent), transparent 59%);
-  --tile-depth: inset 0 1px 0 #ffffff38, inset 1px 0 0 #ffffff0e, inset 0 -1px 0 #ffffff12, 0 .2em .6em #0709174d;
+  --tile-depth: inset 1px 1px 0 #fff8, inset -1px -1px 0 #ffffff24, 0 .2em .6em #0709174d;
   display: grid;
   align-content: center;
   justify-items: center;
@@ -80,6 +82,42 @@
   border-radius: inherit;
   box-shadow: inset 0 1px 0 #fff5, inset 0 0 0 1px #fff2;
   pointer-events: none;
+}
+/* Separate optical layers keep the type, artwork and touch targets sharp. */
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  @media not (prefers-reduced-transparency: reduce) {
+    .widget:not(.widget-v2, .widget-image-card) {
+      position: relative;
+      z-index: 0;
+      background: rgb(255 255 255 / 10%);
+    }
+    .widget:not(.widget-v2, .widget-image-card)::before {
+      content: '';
+      position: absolute;
+      z-index: -1;
+      inset: 2px;
+      border-radius: inherit;
+      pointer-events: none;
+      background: radial-gradient(ellipse at 0 0, color-mix(in srgb, var(--tile-tint) 24%, transparent), transparent 75%),
+        linear-gradient(145deg, #161b302b, #1214256e);
+      -webkit-backdrop-filter: blur(28px) saturate(170%) brightness(.72);
+      backdrop-filter: blur(28px) saturate(170%) brightness(.72);
+    }
+    @supports (mask-composite: exclude) {
+      .widget:not(.widget-v2)::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        padding: 2px;
+        border-radius: inherit;
+        pointer-events: none;
+        mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+        mask-composite: exclude;
+        backdrop-filter: url("glass-optics.svg#rim");
+        background: linear-gradient(135deg, #ffffff45, transparent 27% 75%, #ffffff29);
+      }
+    }
+  }
 }
 .widget-image-card .widget-label {
   position: absolute;
@@ -213,7 +251,6 @@ button.widget:disabled { opacity: .52; }
 }
 .widget-key-join { color: #bcb9c9; font-size: .68em; }
 .widget-shortcut:not(:disabled), button.widget-note:not(:disabled) {
-  backdrop-filter: blur(7px);
   transition: box-shadow .16s ease, border-color .16s ease;
 }
 .widget-grid {
