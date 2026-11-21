@@ -47,6 +47,16 @@
   filter: blur(var(--context-blur));
 }
 .lyric-view .adjacent.distant { filter: blur(calc(1.35 * var(--context-blur))); }
+.lyric-unit {
+  display: inline-block;
+  max-width: 100%;
+  transform: translateY(calc(-.12em * var(--lyric-lift, 0))) scale(calc(1 + .035 * var(--lyric-lift, 0)));
+}
+.lyric-view .adjacent .timed-word {
+  color: inherit;
+  background: none;
+  -webkit-text-fill-color: currentColor;
+}
 .lyric-view .timed-word {
   --highlight-width: .18em;
   --highlight-edge: calc((100% + var(--highlight-width)) * var(--fill, 0));

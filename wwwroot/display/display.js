@@ -36,6 +36,8 @@ let displayedPosition = 0;
 let shownMode;
 let clockMinute;
 let fills = [];
+let lyricLifts = [];
+let settlingLifts = [];
 let transitions = [];
 let departingLine;
 let appearanceKey;
@@ -166,13 +168,18 @@ function refreshScreen(now) {
   }
   displayedPosition = position;
   updateFills(position);
+  updateLyricLifts(lyricLifts, position);
+  updateLyricLifts(settlingLifts, position);
 }
 
 function renderLyrics(lines, index, note, duration = 0) {
   const previous = duration ? new Map([...lyricRows].map(([id, row]) => [id, lyricPosition(row)])) : null;
   const exiting = previous && lyricRows.get(index - contextLines - 1);
   const exitCopy = exiting?.textContent ? exiting.cloneNode(true) : null;
+  const outgoing = current;
+  const outgoingLifts = duration ? lyricLifts.filter(lift => lift.amount > 0) : [];
   stopLyricMotion();
+  settlingLifts = outgoingLifts;
   const next = new Map();
   for (const offset of lyricOffsets) {
     const id = index + offset;
@@ -188,7 +195,7 @@ function renderLyrics(lines, index, note, duration = 0) {
       row.removeAttribute('id');
       row.className = 'adjacent' + (offset < 0 ? ' past' : '') + (Math.abs(offset) >= 2 ? ' distant' : '');
       row.dataset.offset = offset;
-      row.textContent = line?.text ?? '';
+      if (row !== outgoing || !settlingLifts.length) row.textContent = line?.text ?? '';
     }
     next.set(id, row);
   }
@@ -200,24 +207,66 @@ function renderLyrics(lines, index, note, duration = 0) {
 
 function showCurrentLine(line, note) {
   fills = [];
+  lyricLifts = [];
   current.replaceChildren();
   if (!line?.words?.length || reducedMotion.matches) {
     current.textContent = line?.text ?? (note || (state?.song ? '' : '等待播放'));
     return;
   }
+  const timings = [];
   let position = 0;
   for (const word of line.words) {
     const found = line.text.indexOf(word.text, position);
-    if (found < 0) continue;
-    current.append(document.createTextNode(line.text.slice(position, found)));
-    const span = document.createElement('span');
-    span.className = 'timed-word';
-    span.textContent = word.text;
-    current.append(span);
-    fills.push({ span, start: word.atMs, end: word.endMs, percent: -1 });
+    if (found < 0 || !word.text) continue;
     position = found + word.text.length;
+    if (word.endMs > word.atMs) {
+      timings.push({ from: found, to: position, start: word.atMs, end: word.endMs });
+    }
   }
-  current.append(document.createTextNode(line.text.slice(position)));
+
+  let timingIndex = 0;
+  function appendRange(parent, from, to) {
+    while (from < to) {
+      while (timings[timingIndex]?.to <= from) timingIndex++;
+      const timing = timings[timingIndex];
+      if (!timing || timing.from > from) {
+        const stop = Math.min(to, timing?.from ?? to);
+        parent.append(line.text.slice(from, stop));
+        from = stop;
+        continue;
+      }
+      const stop = Math.min(to, timing.to);
+      const msPerCharacter = (timing.end - timing.start) / (timing.to - timing.from);
+      const span = document.createElement('span');
+      span.className = 'timed-word';
+      span.textContent = line.text.slice(from, stop);
+      parent.append(span);
+      fills.push({ span, start: timing.start + (from - timing.from) * msPerCharacter,
+        end: timing.start + (stop - timing.from) * msPerCharacter, percent: -1 });
+      from = stop;
+    }
+  }
+
+  // Keep Latin words together across provider syllable boundaries and give each Han glyph its own lift.
+  const units = /\p{Script=Latin}[\p{Script=Latin}\p{M}]*(?:['’\u2010-][\p{Script=Latin}\p{M}]+)*|\p{Script=Han}[\uFE00-\uFE0F\u{E0100}-\u{E01EF}]*/gu;
+  position = 0;
+  for (const match of line.text.matchAll(units)) {
+    appendRange(current, position, match.index);
+    position = match.index + match[0].length;
+    const unit = document.createElement('span');
+    const first = fills.length;
+    appendRange(unit, match.index, position);
+    if (fills.length === first) {
+      current.append(...unit.childNodes);
+      continue;
+    }
+    unit.className = 'lyric-unit';
+    current.append(unit);
+    const start = fills[first].start;
+    const end = fills.at(-1).end;
+    lyricLifts.push({ unit, start, end, riseMs: Math.min(150, (end - start) * .62), amount: 0 });
+  }
+  appendRange(current, position, line.text.length);
 }
 
 function fitLyrics() {
@@ -252,6 +301,18 @@ function updateFills(position) {
     if (percent === fill.percent) continue;
     fill.span.style.setProperty('--fill', percent / 100);
     fill.percent = percent;
+  }
+}
+
+function updateLyricLifts(lifts, position) {
+  const ease = value => value * value * (3 - 2 * value);
+  for (const lift of lifts) {
+    const rise = Math.max(0, Math.min(1, (position - lift.start) / Math.max(1, lift.riseMs)));
+    const fall = Math.max(0, Math.min(1, (position - lift.end) / 190));
+    const amount = Math.round(100 * ease(rise) * (1 - ease(fall))) / 100;
+    if (amount === lift.amount) continue;
+    lift.unit.style.setProperty('--lyric-lift', amount);
+    lift.amount = amount;
   }
 }
 
@@ -309,6 +370,8 @@ function stopLyricMotion() {
   transitions = [];
   departingLine?.remove();
   departingLine = undefined;
+  for (const lift of settlingLifts) lift.unit.style.removeProperty('--lyric-lift');
+  settlingLifts = [];
 }
 
 async function refreshState() {
