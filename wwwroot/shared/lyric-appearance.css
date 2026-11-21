@@ -50,7 +50,7 @@
 .lyric-unit {
   display: inline-block;
   max-width: 100%;
-  transform: translateY(calc(-.12em * var(--lyric-lift, 0))) scale(calc(1 + .035 * var(--lyric-lift, 0)));
+  transform: translateY(calc(-.10em * var(--lyric-lift, 0))) scaleY(calc(1 + .01 * var(--lyric-lift, 0)));
 }
 .lyric-view .adjacent .timed-word {
   color: inherit;
