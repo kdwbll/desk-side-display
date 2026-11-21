@@ -36,8 +36,10 @@ let displayedPosition = 0;
 let shownMode;
 let clockMinute;
 let fills = [];
-let lyricLifts = [];
-let settlingLifts = [];
+let waveUnits = [];
+let lyricWaves = [];
+const lyricWaveRadius = 2;
+const lyricWaveTailMs = 180;
 let transitions = [];
 let departingLine;
 let appearanceKey;
@@ -168,18 +170,16 @@ function refreshScreen(now) {
   }
   displayedPosition = position;
   updateFills(position);
-  updateLyricLifts(lyricLifts, position);
-  updateLyricLifts(settlingLifts, position);
+  updateLyricWave(position);
 }
 
 function renderLyrics(lines, index, note, duration = 0) {
   const previous = duration ? new Map([...lyricRows].map(([id, row]) => [id, lyricPosition(row)])) : null;
   const exiting = previous && lyricRows.get(index - contextLines - 1);
   const exitCopy = exiting?.textContent ? exiting.cloneNode(true) : null;
-  const outgoing = current;
-  const outgoingLifts = duration ? lyricLifts.filter(lift => lift.amount > 0) : [];
   stopLyricMotion();
-  settlingLifts = outgoingLifts;
+  fills = [];
+  waveUnits = [];
   const next = new Map();
   for (const offset of lyricOffsets) {
     const id = index + offset;
@@ -190,12 +190,17 @@ function renderLyrics(lines, index, note, duration = 0) {
       row.id = 'current';
       row.className = note ? 'current lyric-note' : 'current';
       delete row.dataset.offset;
-      showCurrentLine(line, note);
     } else {
       row.removeAttribute('id');
       row.className = 'adjacent' + (offset < 0 ? ' past' : '') + (Math.abs(offset) >= 2 ? ' distant' : '');
       row.dataset.offset = offset;
-      if (row !== outgoing || !settlingLifts.length) row.textContent = line?.text ?? '';
+    }
+    if (Math.abs(offset) <= 2 && line?.words?.length && !reducedMotion.matches) {
+      const timed = renderTimedLine(row, line);
+      waveUnits.push(...timed.units);
+      if (offset === 0) fills = timed.fills;
+    } else {
+      row.textContent = line?.text ?? (offset === 0 ? note || (state?.song ? '' : '等待播放') : '');
     }
     next.set(id, row);
   }
@@ -205,14 +210,10 @@ function renderLyrics(lines, index, note, duration = 0) {
   if (previous) animateLyrics(previous, index, exitCopy, duration);
 }
 
-function showCurrentLine(line, note) {
-  fills = [];
-  lyricLifts = [];
-  current.replaceChildren();
-  if (!line?.words?.length || reducedMotion.matches) {
-    current.textContent = line?.text ?? (note || (state?.song ? '' : '等待播放'));
-    return;
-  }
+function renderTimedLine(row, line) {
+  const fills = [];
+  const units = [];
+  row.replaceChildren();
   const timings = [];
   let position = 0;
   for (const word of line.words) {
@@ -247,26 +248,27 @@ function showCurrentLine(line, note) {
     }
   }
 
-  // Keep Latin words together across provider syllable boundaries and give each Han glyph its own lift.
-  const units = /\p{Script=Latin}[\p{Script=Latin}\p{M}]*(?:['’\u2010-][\p{Script=Latin}\p{M}]+)*|\p{Script=Han}[\uFE00-\uFE0F\u{E0100}-\u{E01EF}]*/gu;
+  // Keep Latin words together across provider syllable boundaries.
+  const unitPattern = /\p{Script=Latin}[\p{Script=Latin}\p{M}]*(?:['’\u2010-][\p{Script=Latin}\p{M}]+)*|\p{Script=Han}[\uFE00-\uFE0F\u{E0100}-\u{E01EF}]*/gu;
   position = 0;
-  for (const match of line.text.matchAll(units)) {
-    appendRange(current, position, match.index);
+  for (const match of line.text.matchAll(unitPattern)) {
+    appendRange(row, position, match.index);
     position = match.index + match[0].length;
     const unit = document.createElement('span');
     const first = fills.length;
     appendRange(unit, match.index, position);
     if (fills.length === first) {
-      current.append(...unit.childNodes);
+      row.append(...unit.childNodes);
       continue;
     }
     unit.className = 'lyric-unit';
-    current.append(unit);
+    row.append(unit);
     const start = fills[first].start;
     const end = fills.at(-1).end;
-    lyricLifts.push({ unit, start, end, riseMs: Math.min(150, (end - start) * .62), amount: 0 });
+    units.push({ unit, start, end, amount: 0 });
   }
-  appendRange(current, position, line.text.length);
+  appendRange(row, position, line.text.length);
+  return { fills, units };
 }
 
 function fitLyrics() {
@@ -280,6 +282,7 @@ function fitLyrics() {
     lyricStack.style.setProperty('--lyric-scale', scale);
   }
   lyricStack.scrollTop = Math.max(0, current.offsetTop - Math.max(0, (lyricStack.clientHeight - current.offsetHeight) / 2));
+  lyricWaves = buildLyricWaves(waveUnits);
 }
 
 function sectionCorrection(position, duration, points) {
@@ -304,15 +307,59 @@ function updateFills(position) {
   }
 }
 
-function updateLyricLifts(lifts, position) {
-  const ease = value => value * value * (3 - 2 * value);
-  for (const lift of lifts) {
-    const rise = Math.max(0, Math.min(1, (position - lift.start) / Math.max(1, lift.riseMs)));
-    const fall = Math.max(0, Math.min(1, (position - lift.end) / 190));
-    const amount = Math.round(100 * ease(rise) * (1 - ease(fall))) / 100;
-    if (amount === lift.amount) continue;
-    lift.unit.style.setProperty('--lyric-lift', amount);
-    lift.amount = amount;
+function buildLyricWaves(units) {
+  const waves = [];
+  let run = [];
+  let row, fontSize, distance = 0;
+  for (const item of units) {
+    const previous = run.at(-1);
+    // Restart the crest after long gaps so words settle during the silence.
+    if (previous && item.start - previous.end > 2 * lyricWaveTailMs) {
+      waves.push(run);
+      run = [];
+      distance = 0;
+    }
+    if (row !== item.unit.parentElement) {
+      row = item.unit.parentElement;
+      fontSize = parseFloat(getComputedStyle(row).fontSize);
+    }
+    const width = Math.max(.35, item.unit.offsetWidth / fontSize);
+    item.center = distance + width / 2;
+    item.peakAt = Math.max((item.start + item.end) / 2, (run.at(-1)?.peakAt ?? -Infinity) + 1);
+    run.push(item);
+    distance += width;
+  }
+  if (run.length) waves.push(run);
+  return waves;
+}
+
+function lyricWaveCenter(run, position) {
+  const first = run[0];
+  const last = run.at(-1);
+  const start = first.start - lyricWaveTailMs;
+  const end = Math.max(last.end, last.peakAt) + lyricWaveTailMs;
+  if (position < start || position >= end) return Infinity;
+  let leftTime = start, leftX = first.center - lyricWaveRadius;
+  const between = (time, x) => leftX + (x - leftX) * (position - leftTime) / (time - leftTime);
+  for (const item of run) {
+    if (position <= item.peakAt) return between(item.peakAt, item.center);
+    leftTime = item.peakAt;
+    leftX = item.center;
+  }
+  return between(end, last.center + lyricWaveRadius);
+}
+
+function updateLyricWave(position) {
+  for (const run of lyricWaves) {
+    const crest = lyricWaveCenter(run, position);
+    for (const item of run) {
+      const distance = Math.abs(item.center - crest);
+      const height = distance < lyricWaveRadius ? Math.cos(Math.PI / 2 * distance / lyricWaveRadius) : 0;
+      const amount = Math.round(height * 1000) / 1000;
+      if (amount === item.amount) continue;
+      item.unit.style.setProperty('--lyric-lift', amount);
+      item.amount = amount;
+    }
   }
 }
 
@@ -370,8 +417,6 @@ function stopLyricMotion() {
   transitions = [];
   departingLine?.remove();
   departingLine = undefined;
-  for (const lift of settlingLifts) lift.unit.style.removeProperty('--lyric-lift');
-  settlingLifts = [];
 }
 
 async function refreshState() {
