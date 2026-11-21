@@ -85,8 +85,6 @@
 .widget-layout-preview .widget-placed {
   cursor: move;
   touch-action: none;
-  outline: 1px dashed #f5f3ff70;
-  outline-offset: -1px;
 }
 .widget-layout-preview .widget-placed > .widget { pointer-events: none; overflow: hidden; }
 .widget-layout-preview .widget-placed.selected, .widget-layout-preview .widget-placed:focus-visible {
