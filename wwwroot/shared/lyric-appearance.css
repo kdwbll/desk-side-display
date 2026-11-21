@@ -48,8 +48,13 @@
 }
 .lyric-view .adjacent.distant { filter: blur(calc(1.35 * var(--context-blur))); }
 .lyric-view .timed-word {
+  --highlight-width: .18em;
+  --highlight-edge: calc((100% + var(--highlight-width)) * var(--fill, 0));
   color: color-mix(in srgb, var(--foreground) 45%, transparent);
-  background: linear-gradient(90deg, var(--foreground) var(--fill, 0%), currentColor var(--fill, 0%));
+  /* Sweep the soft edge completely past the glyph at both ends of the timing. */
+  background: linear-gradient(90deg,
+    var(--foreground) calc(var(--highlight-edge) - var(--highlight-width)),
+    currentColor var(--highlight-edge));
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
