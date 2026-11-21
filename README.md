@@ -2,7 +2,7 @@
 
 用 USB 把闲置的安卓手机变成横屏桌面摆件。Windows 上播放 Apple Music 时，手机显示专辑封面和同步歌词。平时可以滑到时钟、相框、硬件监控，或自己排版的卡片页面。
 
-[在线体验](https://kdwbll.github.io/desk-side-display/) · [使用说明](使用说明.md) · [参与贡献](CONTRIBUTING.md) · [MIT 许可证](LICENSE)
+[下载 Windows 版](https://github.com/kdwbll/desk-side-display/releases/latest) · [在线体验](https://kdwbll.github.io/desk-side-display/) · [使用说明](使用说明.md) · [参与贡献](CONTRIBUTING.md) · [MIT 许可证](LICENSE)
 
 [![手机横放在显示器下方的支架上，屏幕显示专辑流光与逐字歌词](docs/screenshots/demo-device.jpg)](https://kdwbll.github.io/desk-side-display/)
 
@@ -43,10 +43,11 @@
 
 ## 快速开始
 
-1. 在 Windows 安装 [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) 和 Apple Music 桌面客户端。下载 Windows 版 [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools)，将解压后的 `platform-tools` 文件夹放在项目的 `.tools` 目录内。
-2. 双击 [Create-Desktop-Shortcut.cmd](Create-Desktop-Shortcut.cmd)，在 Windows 桌面创建「桌面副屏」。以后双击这个图标就能打开控制面板。也可以直接运行 [Start-DeskSideDisplay.cmd](Start-DeskSideDisplay.cmd)。
-3. 在安卓手机上开启 USB 调试，通过支持数据传输的 USB 线连上电脑，并在手机上允许调试。
-4. 控制面板显示「USB 已连接」后，用**手机浏览器**访问 `http://127.0.0.1:8765/`。把手机横放，轻点页面进入全屏。随后可播放 Apple Music 看歌词，或在控制面板的「界面与小组件」添加卡片及全屏预设。
+1. 解压 [GitHub Releases](https://github.com/kdwbll/desk-side-display/releases/latest) 中的 `win-x64.zip` 发布包。发布包内置 .NET 运行时。从源码启动时需安装 [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)。
+2. 从 Android 官网下载 Windows 版 [SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools)，将解压后的 `platform-tools` 文件夹放在程序目录的 `.tools` 文件夹内，确认路径为 `.tools\platform-tools\adb.exe`。需要歌词时，在电脑安装 Apple Music 桌面客户端。
+3. 双击 [Create-Desktop-Shortcut.cmd](Create-Desktop-Shortcut.cmd)，在 Windows 桌面创建「桌面副屏」。以后双击这个图标就能打开控制面板。也可以直接运行 [Start-DeskSideDisplay.cmd](Start-DeskSideDisplay.cmd)。
+4. 在安卓手机上开启 USB 调试，通过支持数据传输的 USB 线连上电脑，并在手机上允许调试。
+5. 控制面板显示「USB 已连接」后，用**手机浏览器**访问 `http://127.0.0.1:8765/`。把手机横放，轻点页面进入全屏。随后可播放 Apple Music 看歌词，或在控制面板的「界面与小组件」添加卡片及全屏预设。
 
 首次配置、歌词匹配和排查步骤见[详细使用说明](使用说明.md)。
 

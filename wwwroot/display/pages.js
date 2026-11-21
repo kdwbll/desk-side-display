@@ -65,7 +65,9 @@ const phonePages = (() => {
       references.some(([, keys]) => keys.some(key => /^(cpu|gpu|ram)\./.test(key)));
     const intervals = references.filter(([, keys]) => keys.some(key => widgetV2.serverGroups.has(key.split('.')[0])))
       .map(([widget]) => widget.manifest.refreshMs ?? 2000);
+    const needsWeather = references.some(([, keys]) => keys.some(key => key.startsWith('weather.')));
     return { page, expanded, tiles, roots, free, clipboardPage, needsMetrics, dataDue: 0,
+      dataTimeout: needsWeather ? 20000 : 7000,
       dataInterval: intervals.length ? Math.min(...intervals) : undefined };
   }
 
@@ -310,7 +312,7 @@ const phonePages = (() => {
     view.dataDue = performance.now() + view.dataInterval;
     try {
       const response = await fetch('/api/widget-data?page=' + encodeURIComponent(view.page.id), {
-        signal: AbortSignal.timeout(7000)
+        signal: AbortSignal.timeout(view.dataTimeout)
       });
       if (!pageViews.has(view.page)) return;
       if (response.ok) view.data = await response.json();

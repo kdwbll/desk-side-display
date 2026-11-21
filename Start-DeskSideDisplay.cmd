@@ -8,9 +8,13 @@ if not errorlevel 1 (
     popd
     exit /b 0
 )
-dotnet build --nologo
-if errorlevel 1 goto failed
-dotnet "bin\Debug\net9.0-windows10.0.19041.0\DeskSideDisplay.dll" --open-control
+if exist "%~dp0DeskSideDisplay.exe" (
+    "%~dp0DeskSideDisplay.exe" --open-control
+) else (
+    dotnet build --nologo
+    if errorlevel 1 goto failed
+    dotnet "bin\Debug\net9.0-windows10.0.19041.0\DeskSideDisplay.dll" --open-control
+)
 if errorlevel 1 goto failed
 popd
 exit /b 0

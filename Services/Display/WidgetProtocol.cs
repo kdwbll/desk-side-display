@@ -73,7 +73,7 @@ static class WidgetProtocol
         ["network.name"] = "text", ["network.down"] = "number", ["network.up"] = "number",
         ["weather.temperature"] = "number", ["weather.code"] = "number", ["weather.wind"] = "number",
         ["weather.humidity"] = "number", ["weather.feels"] = "number", ["weather.day"] = "boolean",
-        ["weather.place"] = "text", ["weather.configured"] = "boolean"
+        ["weather.place"] = "text", ["weather.configured"] = "boolean", ["weather.stale"] = "boolean"
     };
     internal static readonly string[] Permissions = ["clipboard", "notifications", "window", "weather", "interfaces", "actions"];
     internal static readonly string[] ServerGroups =

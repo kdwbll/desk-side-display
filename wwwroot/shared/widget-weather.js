@@ -61,12 +61,12 @@ window.deskWeather = (() => {
     let signature;
 
     function update(data, format) {
-      const samples = ['temperature', 'code', 'day', 'feels', 'humidity', 'wind', 'place', 'configured']
+      const samples = ['temperature', 'code', 'day', 'feels', 'humidity', 'wind', 'place', 'configured', 'stale']
         .map(key => data?.['weather.' + key]);
       const key = JSON.stringify(samples);
       if (signature === key) return;
       signature = key;
-      const [temperature, code, day, feels, humidity, wind, location, configured] = samples;
+      const [temperature, code, day, feels, humidity, wind, location, configured, stale] = samples;
       const [pattern, name] = condition(code, day !== false);
       card.dataset.condition = pattern;
       card.dataset.night = String(day === false);
@@ -76,7 +76,9 @@ window.deskWeather = (() => {
       const printable = (value, unit) => Number.isFinite(value) ? number.format(value) + unit : '—';
       temp.textContent = printable(temperature, '°');
       place.textContent = location || '当地天气';
-      status.textContent = name || (configured ? '暂时无法获取天气' : '在电脑上设置天气位置');
+      if (name) status.textContent = stale ? name + ' · 上次数据' : name;
+      else if (configured == null) status.textContent = '正在获取天气';
+      else status.textContent = configured ? '暂时无法获取天气' : '在电脑上设置天气位置';
       stats.hidden = ![feels, humidity, wind].some(Number.isFinite);
       [feels, humidity, wind].forEach((number, i) => {
         values[i].textContent = printable(number, ['°', '%', ' km/h'][i]);
