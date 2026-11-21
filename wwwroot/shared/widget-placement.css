@@ -21,7 +21,6 @@
   overflow: auto;
   touch-action: pan-y;
   align-content: safe center;
-  border-radius: min(.85em, 12cqh, 12cqw);
   font-size: clamp(4px, min(7.8cqw, 13.5cqh), 27px);
   padding: min(.55em, 4cqh, 4cqw);
   gap: min(.45em, 3cqh, 4cqw);
@@ -57,7 +56,6 @@
   width: 100%;
   height: 100%;
   min-height: 0;
-  border-radius: min(1em, 11cqh);
 }
 .widget-placed .widget-weather[data-shape="capsule"] { border-radius: 50vh; }
 .widget-placed .widget-weather:is([data-shape="round"], [data-shape="square"]) {
@@ -66,8 +64,10 @@
   aspect-ratio: 1;
 }
 .widget-placed .widget-weather[data-shape="round"] { border-radius: 50%; }
-.widget-placed .widget-weather[data-shape="square"] { border-radius: min(.42em, 5cqh); }
-.widget-placed .widget-weather .weather-temperature { font-size: min(14cqw, 23cqh, 3.2em); }
+.widget-placed .widget-weather .weather-temperature { font-size: min(21cqw, 37cqh, 4.4em); }
+.widget-placed .widget-weather:is([data-shape="round"], [data-shape="square"]) .weather-temperature {
+  font-size: min(23cqi, 3.5em);
+}
 .widget-placed .widget-weather .weather-motif { width: min(100%, 61cqh, 6em); }
 .widget-placed .widget-weather:is([data-shape="round"], [data-shape="square"]) .weather-motif {
   width: min(45%, 35cqh, 4.7em);
@@ -81,7 +81,7 @@
   .widget-placed .widget-keycaps { row-gap: .22em; }
 }
 @container (min-aspect-ratio: 1.8) {
-  .widget-placed > .widget-shortcut { font-size: clamp(5px, min(9cqw, 25cqh), 30px); }
+  .widget-placed > .widget-shortcut { font-size: clamp(5px, min(8cqw, 20cqh), 25px); }
   .widget-placed > :is(.widget-note, .widget-clock, .widget-date) {
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;

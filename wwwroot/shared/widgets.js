@@ -111,6 +111,7 @@ window.deskWidgets = (() => {
     const value = node('span', 'widget-value');
     const detail = node('span', 'widget-detail');
     const face = node('span', metric ? 'widget-gauge' : 'widget-face');
+    if (widget.type === 'metric') face.dataset.metric = metric;
     if (metric) tile.classList.add('widget-with-gauge');
     face.append(value);
     tile.append(face);
@@ -125,6 +126,7 @@ window.deskWidgets = (() => {
       switch (widget.type) {
         case 'metric':
           main = metricValue(metric, hw);
+          if (main !== value.textContent) value.style.setProperty('--reading-length', main.length);
           sub = metricDetail(metric, hw);
           break;
         case 'clock':

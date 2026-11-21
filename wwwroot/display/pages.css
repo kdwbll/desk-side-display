@@ -21,7 +21,6 @@
   padding: .45em .8em;
   font-size: clamp(10px, 1.7vw, 17px);
 }
-#page-widgets .widget { border-radius: .65em; }
 #page-widgets .widget-music-cover { width: min(80%, 4.2em); }
 #page-widgets .widget-gauge { width: min(100%, 3.5em); }
 .page-footer {
