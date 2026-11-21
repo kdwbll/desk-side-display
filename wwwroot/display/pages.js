@@ -9,8 +9,6 @@ const phonePages = (() => {
   const stage = document.getElementById('widget-stage');
   const heading = document.getElementById('dashboard-name');
   const empty = document.getElementById('dashboard-empty');
-  const footer = document.getElementById('page-footer');
-  const indicator = document.getElementById('page-indicator');
   const feedback = document.getElementById('shortcut-feedback');
   const builtIn = (id, name) => ({ id, kind: id, name, widgets: [], color: '#171923' });
   let pages = [builtIn('lyrics', '歌词'), builtIn('hardware', '硬件监控')];
@@ -22,18 +20,10 @@ const phonePages = (() => {
   let pcRevision;
   let manual;
   let visible;
-  let shownPageId;
-  let synchronized = false;
-  let footerTimer;
   let state;
   let mounted;
-  let tiles = [];
+  const pageViews = new Map();
   let hardware;
-  let needsMetrics = false;
-  let data;
-  let dataInterval;
-  let sampledPage;
-  let dataDue = 0;
   let touch;
   let suppressClick = false;
   let feedbackTimer;
@@ -43,20 +33,10 @@ const phonePages = (() => {
   function show(mode, nextState) {
     const stateChanged = state !== nextState;
     state = nextState;
-    const firstSync = !synchronized && !!state;
-    if (firstSync) synchronized = true;
     const command = state?.displayRevision;
     if (pcRevision !== undefined && command !== undefined && command !== pcRevision) manual = undefined;
     if (command !== undefined) pcRevision = command;
     const page = pages.find(item => item.id === manual) ?? pages.find(item => item.id === mode) ?? pages[0];
-    if (page.id !== shownPageId) {
-      if (shownPageId !== undefined && (!firstSync || manual)) {
-        footer.hidden = false;
-        clearTimeout(footerTimer);
-        footerTimer = setTimeout(() => { footer.hidden = true; }, 2000);
-      }
-      shownPageId = page.id;
-    }
     if (stateChanged || page !== visible) updateBackdrop(page, state);
     if (page !== visible) {
       visible = page;
@@ -65,19 +45,44 @@ const phonePages = (() => {
     return page.kind === 'hardware' || page.kind === 'custom' ? 'dashboard' : page.kind;
   }
 
-  function mount(page) {
+  function createPageView(page) {
     const expanded = page.kind === 'hardware' || page.kind === 'custom';
     const custom = page.widgets.filter(widget => widget.type === 'custom' && widget.manifest?.version === 2);
     const references = custom.map(widget => [widget, widgetV2.references(widget.manifest)]);
-    tiles = page.widgets.map(widget => widget.type === 'custom' && widget.manifest?.version === 2
+    const tiles = page.widgets.map(widget => widget.type === 'custom' && widget.manifest?.version === 2
       ? widgetV2.make(widget, capability && actionsEnabled ? runAction : null)
       : deskWidgets.make(widget, capability && shortcutsEnabled ? press : null,
         capability && actionsEnabled ? controlMusic : null, openNote));
     const free = widgetPlacement.isFree(page);
     const rects = free ? widgetPlacement.resolve(page) : null;
-    stage.replaceChildren(...(free ? tiles.map((tile, i) => widgetPlacement.frame(tile.element, rects[i])) : []));
-    grid.replaceChildren(...(!free && expanded ? tiles.map(tile => tile.element) : []));
-    strip.replaceChildren(...(!free && !expanded ? tiles.map(tile => tile.element) : []));
+    const roots = free ? tiles.map((tile, i) => widgetPlacement.frame(tile.element, rects[i]))
+      : tiles.map(tile => tile.element);
+    const needsMetrics = page.kind === 'hardware' || page.widgets.some(widget =>
+      widget.type === 'metric' || (widget.type === 'custom' && (widget.manifest.gauge ||
+        /\{\{(?:cpu|gpu|ram)\./.test(widget.manifest.template + ' ' + (widget.manifest.detail ?? ''))))) ||
+      references.some(([, keys]) => keys.some(key => /^(cpu|gpu|ram)\./.test(key)));
+    const intervals = references.filter(([, keys]) => keys.some(key => widgetV2.serverGroups.has(key.split('.')[0])))
+      .map(([widget]) => widget.manifest.refreshMs ?? 2000);
+    return { page, expanded, tiles, roots, free, needsMetrics, dataDue: 0,
+      dataInterval: intervals.length ? Math.min(...intervals) : undefined };
+  }
+
+  function mount(page) {
+    if (mounted && pageViews.has(mounted.page)) {
+      const scrollable = [grid, strip, ...mounted.tiles.flatMap(({element}) =>
+        [element, ...element.querySelectorAll('.widget-v2-history-list')])];
+      mounted.scroll = scrollable.filter(element => element.scrollTop).map(element => [element, element.scrollTop]);
+      mounted.weatherMotion = mounted.tiles.flatMap(({element}) =>
+        [...element.querySelectorAll('.widget-weather')].flatMap(card =>
+          card.getAnimations({ subtree: true }).filter(animation => animation.currentTime !== null)
+            .map(animation => [animation.effect.target, animation.animationName, animation.currentTime])));
+    }
+    if (!pageViews.has(page)) pageViews.set(page, createPageView(page));
+    const view = pageViews.get(page);
+    const { expanded, tiles, roots, free } = view;
+    stage.replaceChildren(...(free ? roots : []));
+    grid.replaceChildren(...(!free && expanded ? roots : []));
+    strip.replaceChildren(...(!free && !expanded ? roots : []));
     stage.hidden = !free;
     grid.hidden = free;
     grid.scrollTop = strip.scrollTop = 0;
@@ -98,38 +103,31 @@ const phonePages = (() => {
     }
     dashboard.style.setProperty('--dashboard-background', page.color);
     document.getElementById('clock').style.backgroundColor = page.color;
-    indicator.setAttribute('aria-label', [pageName, pageNumber, '共 ' + pages.length + ' 页'].filter(Boolean).join('，'));
-    indicator.replaceChildren(...pages.map(item => {
-      const dot = deskWidgets.node('span', 'page-dot' + (item === page ? ' active' : ''));
-      dot.setAttribute('aria-hidden', 'true');
-      return dot;
-    }));
-    needsMetrics = page.kind === 'hardware' || page.widgets.some(widget =>
-      widget.type === 'metric' || (widget.type === 'custom' && (widget.manifest.gauge ||
-        /\{\{(?:cpu|gpu|ram)\./.test(widget.manifest.template + ' ' + (widget.manifest.detail ?? ''))))) ||
-      references.some(([, keys]) => keys.some(key => /^(cpu|gpu|ram)\./.test(key)));
-    const intervals = references.filter(([, keys]) => keys.some(key => widgetV2.serverGroups.has(key.split('.')[0])))
-      .map(([widget]) => widget.manifest.refreshMs ?? 2000);
-    dataInterval = intervals.length ? Math.min(...intervals) : undefined;
-    if (sampledPage !== page) {
-      dataDue = 0;
-      data = undefined;
-    }
-    mounted = page;
+    main.dataset.pageLabel = [pageName, pageNumber, '共 ' + pages.length + ' 页'].filter(Boolean).join(' · ');
+    mounted = view;
     updateTiles();
+    if (view.scroll?.length || view.weatherMotion?.length) requestAnimationFrame(() => {
+      if (view !== mounted) return;
+      for (const [element, top] of view.scroll) element.scrollTop = top;
+      for (const [element, name, time] of view.weatherMotion) {
+        const animation = element.getAnimations().find(item => item.animationName === name);
+        if (animation) animation.currentTime = time;
+      }
+    });
     motion?.cancel();
     if (direction && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
       motion = (expanded ? dashboard : document.getElementById(page.kind)).animate([
-        { opacity: .68, transform: 'translateX(' + direction * 16 + 'px)' },
-        { opacity: 1, transform: 'translateX(0)' }
+        { transform: 'translateX(' + direction * 16 + 'px)' },
+        { transform: 'translateX(0)' }
       ], { duration: 175, easing: 'ease-out' });
     }
     direction = 0;
   }
 
   function updateTiles() {
+    if (!mounted) return;
     const now = new Date();
-    for (const tile of tiles) tile.update({ now, state, hardware, data });
+    for (const tile of mounted.tiles) tile.update({ now, state, hardware, data: mounted.data });
   }
 
   function navigate(delta) {
@@ -223,7 +221,7 @@ const phonePages = (() => {
         const type = response.headers.get('Content-Type') ?? '';
         throw Error(type.startsWith('text/plain') ? await response.text() : '组件动作暂不可用。');
       }
-      dataDue = 0;
+      if (mounted) mounted.dataDue = 0;
       announce(['已执行', widget.name.trim()].filter(Boolean).join(' · '));
     } catch (error) { announce(error.message || '操作失败'); }
   }
@@ -278,13 +276,13 @@ const phonePages = (() => {
         actionsEnabled = Boolean(next.actionsEnabled);
         shortcutsEnabled = Boolean(next.layout.shortcutsEnabled);
         if (!pages.some(page => page.id === manual)) manual = undefined;
+        pageViews.clear();
         visible = undefined;
       }
     } catch {
-      data = undefined;
-      dataDue = 0;
       if (capability) {
         capability = undefined;
+        pageViews.clear();
         visible = undefined;
       }
     } finally { setTimeout(refreshLayout, 1400); }
@@ -294,7 +292,7 @@ const phonePages = (() => {
 
   async function refreshMetrics() {
     try {
-      if (needsMetrics && !document.hidden) {
+      if (mounted?.needsMetrics && !document.hidden) {
         const response = await fetch('/api/metrics', { signal: AbortSignal.timeout(4500) });
         hardware = response.ok ? await response.json() : undefined;
       }
@@ -303,24 +301,32 @@ const phonePages = (() => {
   }
 
   async function refreshData() {
-    const page = mounted;
+    const view = mounted;
+    if (!view?.dataInterval || view.fetching || document.hidden || performance.now() < view.dataDue) return;
+    view.fetching = true;
+    view.dataDue = performance.now() + view.dataInterval;
     try {
-      if (dataInterval && page && !document.hidden && performance.now() >= dataDue) {
-        dataDue = performance.now() + dataInterval;
-        sampledPage = page;
-        const response = await fetch('/api/widget-data?page=' + encodeURIComponent(page.id), {
-          signal: AbortSignal.timeout(7000)
-        });
-        const next = response.ok ? await response.json() : undefined;
-        if (mounted === page) data = next;
-      }
-    } catch { if (mounted === page) data = undefined; }
-    finally { setTimeout(refreshData, 500); }
+      const response = await fetch('/api/widget-data?page=' + encodeURIComponent(view.page.id), {
+        signal: AbortSignal.timeout(7000)
+      });
+      if (!pageViews.has(view.page)) return;
+      if (response.ok) view.data = await response.json();
+      else if (response.status === 401 || response.status === 403) {
+        for (const cached of pageViews.values()) cached.data = undefined;
+        updateTiles();
+        return;
+      } else if (response.status === 404) view.data = undefined;
+      if (view === mounted && pageViews.has(view.page)) updateTiles();
+    } catch {
+      // Keep the last successful sample during temporary network failures.
+    } finally {
+      view.fetching = false;
+    }
   }
 
   refreshLayout();
   refreshMetrics();
-  refreshData();
+  setInterval(refreshData, 500);
   setInterval(updateTiles, 350);
   return { show };
 })();

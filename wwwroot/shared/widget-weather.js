@@ -31,6 +31,7 @@ window.deskWeather = (() => {
       node('span', 'weather-cloud weather-cloud-front'), particles);
     sky.append(motif);
     const report = node('div', 'weather-report');
+    const heading = node('div', 'weather-heading');
     const place = node('span', 'weather-place');
     const temp = node('span', 'weather-temperature');
     const status = node('span', 'weather-condition');
@@ -48,7 +49,8 @@ window.deskWeather = (() => {
     credit.target = '_blank';
     credit.rel = 'noopener noreferrer';
     credit.setAttribute('aria-label', '天气数据来源 Open-Meteo');
-    report.append(place, temp, status, stats);
+    heading.append(place, status);
+    report.append(heading, temp, stats);
     card.append(report, sky, credit);
     let signature;
 
