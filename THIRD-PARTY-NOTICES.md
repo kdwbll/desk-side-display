@@ -24,4 +24,4 @@
 
 ## 文档配图
 
-[桌面布置图](docs/screenshots/desk-setup.jpg)根据 kdwbll 提供的实拍照片制作，手机屏幕叠加项目的原创演示画面。原照片相关权利由拍摄者保留，配图经授权在项目文档中展示。
+[桌面布置图](docs/screenshots/desk-setup.jpg)和 [README 封面](docs/screenshots/demo-device.jpg)使用 kdwbll 提供的实拍照片，手机屏幕叠加项目的原创演示画面。原照片相关权利由拍摄者保留，配图经授权在项目文档中展示。
