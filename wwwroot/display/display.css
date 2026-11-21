@@ -76,7 +76,10 @@ main { display: flex; flex-direction: column; position: relative; touch-action: 
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   width: 89%;
-  max-height: 94cqh;
+  height: 100cqh;
+  padding-block: 50cqh;
+  grid-auto-rows: max-content;
+  align-content: start;
   gap: calc(clamp(5px, 1.45cqw, 3.8cqh) * var(--lyric-scale));
   overflow: auto;
   overflow-anchor: none;

@@ -1,3 +1,5 @@
+main { isolation: isolate; }
+main > .page-backdrop { z-index: -1; }
 .dashboard {
   --dashboard-background: #151621;
   display: flex;
@@ -8,6 +10,12 @@
   font-size: clamp(11px, min(2.6cqw, 5.6cqh), 28px);
 }
 .dashboard h1, .dashboard p { margin: 0; }
+main:has(#page-backdrop > .album-flow:not([hidden])) :is(.clock, .photo, .dashboard, #wallpaper) {
+  background: transparent !important;
+}
+main:has(#page-backdrop > .album-flow:not([hidden])) .photo::before,
+main:has(#page-backdrop > .album-flow:not([hidden])) .photo::after { display: none; }
+main:has(#page-backdrop > .album-flow:not([hidden])) #wallpaper { padding: 2.5cqh; }
 .dashboard h1 { color: #f3effb; font-size: 1.13em; }
 #dashboard-empty { color: #ababba; font-size: .72em; }
 #dashboard-widgets { flex: 1; min-height: 0; grid-auto-rows: minmax(7.5em, 1fr); overflow: auto; }

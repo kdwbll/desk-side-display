@@ -3,6 +3,7 @@
 const phonePages = (() => {
   const main = document.querySelector('main');
   const dashboard = document.getElementById('dashboard');
+  const updateBackdrop = createPageBackdrop(document.getElementById('page-backdrop'));
   const grid = document.getElementById('dashboard-widgets');
   const strip = document.getElementById('page-widgets');
   const stage = document.getElementById('widget-stage');
@@ -40,6 +41,7 @@ const phonePages = (() => {
   let motion;
 
   function show(mode, nextState) {
+    const stateChanged = state !== nextState;
     state = nextState;
     const firstSync = !synchronized && !!state;
     if (firstSync) synchronized = true;
@@ -55,6 +57,7 @@ const phonePages = (() => {
       }
       shownPageId = page.id;
     }
+    if (stateChanged || page !== visible) updateBackdrop(page, state);
     if (page !== visible) {
       visible = page;
       mount(page);

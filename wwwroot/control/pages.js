@@ -54,6 +54,9 @@
   let pageLimit;
 
   const currentPage = () => draft.pages.find(page => page.id === selected);
+  const backdrop = node('div', 'page-backdrop');
+  const updateBackdrop = createPageBackdrop(backdrop);
+  document.addEventListener('playback-cover', () => { if (draft) updateBackdrop(currentPage(), state); });
   const dirty = () => JSON.stringify(draft) !== original;
 
   function button(text, handler, title = text) {
@@ -127,8 +130,8 @@
   function refreshPreview() {
     const page = currentPage();
     preview.style.setProperty('--preview-background', page.color);
-    preview.hidden = page.widgets.length === 0;
-    layoutTools.hidden = preview.hidden;
+    preview.hidden = page.widgets.length === 0 && page.backgroundMode !== 'album';
+    layoutTools.hidden = page.widgets.length === 0;
     resetLayout.disabled = !widgetPlacement.isFree(page);
     previewClocks = [];
     widgetLayoutEditor.render(preview, page, widget => {
@@ -140,6 +143,11 @@
       resetLayout.disabled = false;
       save.disabled = !dirty();
     }, pixelTools);
+    preview.prepend(backdrop);
+    updateBackdrop(page, state);
+    document.dispatchEvent(new CustomEvent('page-flow-change', {
+      detail: draft.pages.some(item => item.kind !== 'lyrics' && item.backgroundMode === 'album')
+    }));
   }
 
   function customChoices() {
@@ -172,6 +180,9 @@
       page.name = value;
       renderOrder();
     }, { max: 24 });
+    if (page.kind !== 'lyrics')
+      field(props, '页面背景', page.backgroundMode ?? 'fixed', value => { page.backgroundMode = value; },
+        { entries: [['fixed', '原有背景'], ['album', '专辑流光']] });
     if (['clock', 'hardware', 'custom'].includes(page.kind))
       field(props, '背景', page.color, value => { page.color = value; }, { type: 'color' });
     if (page.kind === 'custom' || Object.hasOwn(presets, page.kind)) props.append(button('删除界面', () => {

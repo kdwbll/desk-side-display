@@ -23,6 +23,7 @@
 </head>
 <body>
   <main aria-label="安卓桌面副屏">
+    <div id="page-backdrop" class="page-backdrop" aria-hidden="true"></div>
     <div id="page-content">
     <section class="screen music lyric-view" id="lyrics" aria-label="正在播放" hidden>
       <div class="now-playing">
@@ -34,13 +35,7 @@
           <div id="artist"></div>
         </div>
       </div>
-      <div class="lyric-stack">
-        <p class="adjacent past distant" data-offset="-2"></p>
-        <p class="adjacent past" data-offset="-1"></p>
-        <p class="current" id="current"></p>
-        <p class="adjacent" data-offset="1"></p>
-        <p class="adjacent distant" data-offset="2"></p>
-      </div>
+      <div class="lyric-stack"></div>
     </section>
     <section class="screen clock" id="clock" aria-label="时钟" hidden>
       <time id="time"></time>
