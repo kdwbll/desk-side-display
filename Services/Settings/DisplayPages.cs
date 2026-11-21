@@ -5,7 +5,8 @@ using System.Text.RegularExpressions;
 
 sealed record DisplayLayout(int Revision, bool ShortcutsEnabled, DisplayPage[] Pages,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WidgetManifest[]? WidgetLibrary = null);
-sealed record DisplayPage(string Id, string Name, string Kind, string Color, DisplayWidget[] Widgets);
+sealed record DisplayPage(string Id, string Name, string Kind, string Color, DisplayWidget[] Widgets,
+    string BackgroundMode = "fixed");
 sealed record DisplayWidget(Guid Id, string Type, string Name, string Size, string Color,
     string? Text = null, string? Metric = null, string? Keys = null, WidgetManifest? Manifest = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WidgetPlacement? Placement = null,
@@ -120,7 +121,7 @@ sealed class DisplayPages
         foreach (var page in value.Pages)
         {
             if (page.Id == null || !pageIds.Add(page.Id) || !DisplayName(page.Name) || !Color(page.Color) ||
-                page.Widgets is not { Length: <= 8 } ||
+                page.BackgroundMode is not ("fixed" or "album") || page.Widgets is not { Length: <= 8 } ||
                 (BuiltIns.Contains(page.Id) ? page.Kind != page.Id :
                     page.Kind != "custom" || !Guid.TryParseExact(page.Id, "N", out _)))
                 return "页面名称、背景颜色或布局无效。每页最多八个组件。";

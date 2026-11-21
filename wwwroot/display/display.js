@@ -8,7 +8,8 @@ const artist = document.getElementById('artist');
 const lyricStack = document.querySelector('.lyric-stack');
 const lyricView = document.getElementById('lyrics');
 const updateAlbumFlow = createAlbumFlow(lyricView);
-const lyricOffsets = [-2, -1, 0, 1, 2];
+const contextLines = 5;
+const lyricOffsets = Array.from({ length: 2 * contextLines + 1 }, (_, i) => i - contextLines);
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const lyricNotes = {
   searching: '正在查找歌词…',
@@ -133,7 +134,7 @@ function refreshScreen(now) {
 
 function renderLyrics(lines, index, note, duration = 0) {
   const previous = duration ? new Map([...lyricRows].map(([id, row]) => [id, lyricPosition(row)])) : null;
-  const exiting = previous && lyricRows.get(index - 3);
+  const exiting = previous && lyricRows.get(index - contextLines - 1);
   const exitCopy = exiting?.textContent ? exiting.cloneNode(true) : null;
   stopLyricMotion();
   const next = new Map();
@@ -149,7 +150,7 @@ function renderLyrics(lines, index, note, duration = 0) {
       showCurrentLine(line, note);
     } else {
       row.removeAttribute('id');
-      row.className = 'adjacent' + (offset < 0 ? ' past' : '') + (Math.abs(offset) === 2 ? ' distant' : '');
+      row.className = 'adjacent' + (offset < 0 ? ' past' : '') + (Math.abs(offset) >= 2 ? ' distant' : '');
       row.dataset.offset = offset;
       row.textContent = line?.text ?? '';
     }
@@ -184,10 +185,13 @@ function showCurrentLine(line, note) {
 }
 
 function fitLyrics() {
-  if (!current) return;
+  if (!current || !lyricStack.clientHeight) return;
+  // Preserve the original five-line typography even when additional rows extend past the viewport.
+  const first = lyricStack.querySelector('[data-offset="-2"]');
+  const last = lyricStack.querySelector('[data-offset="2"]');
   lyricStack.style.setProperty('--lyric-scale', '1');
   for (const scale of [.91, .82, .73, .64, .55, .48, .42]) {
-    if (lyricStack.scrollHeight <= lyricStack.clientHeight + 1) break;
+    if (last.offsetTop + last.offsetHeight - first.offsetTop <= lyricStack.clientHeight * .94 + 1) break;
     lyricStack.style.setProperty('--lyric-scale', scale);
   }
   lyricStack.scrollTop = Math.max(0, current.offsetTop - Math.max(0, (lyricStack.clientHeight - current.offsetHeight) / 2));
@@ -243,7 +247,7 @@ function animateLyrics(previous, index, exitCopy, duration) {
     ], options));
   }
   if (exitCopy) {
-    const { rect, opacity, filter, fontSize, scale } = previous.get(index - 3);
+    const { rect, opacity, filter, fontSize, scale } = previous.get(index - contextLines - 1);
     const stack = lyricStack.getBoundingClientRect();
     exitCopy.classList.add('lyric-departing');
     exitCopy.setAttribute('aria-hidden', 'true');
@@ -304,11 +308,11 @@ async function keepAwake() {
 
 document.addEventListener('visibilitychange', keepAwake);
 reducedMotion.addEventListener('change', () => { lineKey = undefined; });
-window.addEventListener('resize', () => {
+new ResizeObserver(() => {
   if (shownMode !== 'lyrics') return;
   stopLyricMotion();
   fitLyrics();
-});
+}).observe(lyricStack);
 document.addEventListener('click', async event => {
   if (event.target.closest('button, a')) return;
   if (!document.fullscreenElement) {

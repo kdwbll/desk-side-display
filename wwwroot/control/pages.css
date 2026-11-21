@@ -81,6 +81,7 @@
   background: linear-gradient(146deg, #8278af, #604960, #b7806e);
 }
 .layout-preview-photo { background: linear-gradient(148deg, #375671, #80606c, #bc9a82); }
+.widget-layout-preview:has(.album-flow:not([hidden])) .layout-preview-scene { background: transparent; }
 .layout-preview-custom, .layout-preview-hardware { background: var(--dashboard-light); opacity: 1; }
 .widget-layout-preview .widget-placed {
   cursor: move;

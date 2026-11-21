@@ -31,6 +31,15 @@ let saveTimer;
 let edit = 0;
 let staged;
 let writeQueue = Promise.resolve();
+let otherPageUsesFlow = false;
+function updateFlowControls() {
+  flowSpeed.hidden = flowSpeed.labels[0].hidden = backgroundMode.value !== 'album' && !otherPageUsesFlow;
+  flowBlend.hidden = flowBlend.labels[0].hidden = flowSpeed.hidden;
+}
+document.addEventListener('page-flow-change', event => {
+  otherPageUsesFlow = event.detail;
+  updateFlowControls();
+});
 
 function readAppearance() {
   return { textColor: textColor.value, backgroundColor: backgroundColor.value, backgroundMode: backgroundMode.value,
@@ -41,8 +50,7 @@ function readAppearance() {
 function updatePreview(appearance) {
   applyLyricAppearance(preview, appearance);
   updatePreviewFlow(state?.cover);
-  flowSpeed.hidden = flowSpeed.labels[0].hidden = appearance.backgroundMode !== 'album';
-  flowBlend.hidden = flowBlend.labels[0].hidden = flowSpeed.hidden;
+  updateFlowControls();
   flowBlendValue.textContent = (flowBlend.valueAsNumber > 0 ? '+' : '') + flowBlend.value;
   flowSpeedValue.textContent = flowSpeed.valueAsNumber === 0 ? '静止' : flowSpeed.value + '×';
   flowSpeed.setAttribute('aria-valuetext', flowSpeedValue.textContent);

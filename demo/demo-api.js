@@ -156,7 +156,8 @@ export async function createDemo(notify) {
   function saveLayout(body) {
     if (body?.revision !== layout.revision) return error('界面已有更新，请重新读取。', 409);
     if (!Array.isArray(body.pages) || body.pages.length < 2 || body.pages.length > 10 ||
-      !body.pages.every(page => Array.isArray(page?.widgets) && page.widgets.length <= 8) ||
+      !body.pages.every(page => Array.isArray(page?.widgets) && page.widgets.length <= 8 &&
+        ['fixed', 'album'].includes(page.backgroundMode ?? 'fixed')) ||
       !['lyrics', 'hardware'].every(id => body.pages.some(page => page.id === id)))
       return error('需保留歌词和硬件监控，最多 10 页，每页最多 8 张卡片。');
     const library = new Map(layout.widgetLibrary.map(item => [item.widget || item.name, item]));

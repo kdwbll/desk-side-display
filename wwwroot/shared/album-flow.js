@@ -157,6 +157,29 @@ function createAlbumField(canvas, palette) {
   };
 }
 
+// Widget and preset pages use light foregrounds and share the lyric flow tuning.
+function createPageBackdrop(view) {
+  const update = createAlbumFlow(view);
+  let baseColor, fallback;
+  return (page, state) => {
+    const appearance = state?.lyricAppearance;
+    view.dataset.backgroundMode = page?.kind === 'lyrics' ? 'fixed' : page?.backgroundMode ?? 'fixed';
+    view.dataset.flowSpeed = appearance?.flowSpeed ?? 1;
+    view.dataset.flowBlend = appearance?.flowBlend ?? 0;
+    view.style.setProperty('--flow-blur-scale', 1 + Number(view.dataset.flowBlend) / 150);
+    if (page && baseColor !== page.color) {
+      baseColor = page.color;
+      const rgb = baseColor.match(/[0-9a-f]{2}/gi).map(channel => parseInt(channel, 16));
+      fallback = [
+        { rgb: rgb.map(v => v * .5), weight: 3 },
+        { rgb, weight: 4 },
+        { rgb: rgb.map((v, i) => v * .65 + [70, 96, 128][i]), weight: 3 }
+      ];
+    }
+    update(state?.cover, undefined, fallback);
+  };
+}
+
 function createAlbumFlow(view) {
   const layer = document.createElement('div');
   layer.className = 'album-flow';
@@ -193,8 +216,9 @@ function createAlbumFlow(view) {
   document.addEventListener('visibilitychange', syncMotion);
   reduced.addEventListener('change', syncMotion);
   let source, generation = 0, active = 0, retryAfter = 0;
-  return async function update(url, cover) {
-    const next = view.dataset.backgroundMode === 'album' ? url || null : null;
+  let lastFallback;
+  return async function update(url, cover, fallback) {
+    const next = view.dataset.backgroundMode === 'album' ? url || fallback || null : null;
     const nextBlend = Number(view.dataset.flowBlend ?? 0);
     if (nextBlend !== blend) {
       blend = nextBlend;
@@ -202,32 +226,34 @@ function createAlbumFlow(view) {
     }
     speed = Number(view.dataset.flowSpeed ?? 1);
     syncMotion();
-    if (next === source && (!retryAfter || performance.now() < retryAfter)) return;
+    if (next === source && fallback === lastFallback && (!retryAfter || performance.now() < retryAfter)) return;
     const request = ++generation;
     source = next;
+    lastFallback = fallback;
     retryAfter = 0;
     if (!next) { layer.hidden = true; syncMotion(); return; }
-    try {
-      const image = cover ?? new Image();
-      if (!cover) image.src = next;
-      await image.decode();
-      if (request !== generation) return;
-      const palette = albumPalette(image);
-      if (!palette.length) { layer.hidden = true; syncMotion(); return; }
-      active = 1 - active;
-      paint = createAlbumField(canvases[active], palette);
-      moving = palette.length > 1;
-      time = 0;
-      paint(time, blend);
-      canvases.forEach((canvas, i) => canvas.classList.toggle('visible', i === active));
-      layer.hidden = false;
-      syncMotion();
-    } catch {
-      if (request === generation) {
-        layer.hidden = true;
-        syncMotion();
+    let palette = fallback;
+    if (url) {
+      try {
+        const image = cover ?? new Image();
+        if (!cover) image.src = url;
+        await image.decode();
+        if (request !== generation) return;
+        const extracted = albumPalette(image);
+        if (extracted.length) palette = extracted;
+      } catch {
+        if (request !== generation) return;
         retryAfter = performance.now() + 5000;
       }
     }
+    if (!palette) { layer.hidden = true; syncMotion(); return; }
+    active = 1 - active;
+    paint = createAlbumField(canvases[active], palette);
+    moving = palette.length > 1;
+    time = 0;
+    paint(time, blend);
+    canvases.forEach((canvas, i) => canvas.classList.toggle('visible', i === active));
+    layer.hidden = false;
+    syncMotion();
   };
 }
