@@ -2,12 +2,8 @@
   --widget-surface: var(--dark-background, #2b2a38);
   --widget-ink: var(--dark-foreground, #f4f2fb);
   --widget-line: var(--dark-accent, var(--widget-accent));
-  --glass-face: radial-gradient(ellipse at 82% -18%, #e2efff2e, transparent 58%),
-    linear-gradient(150deg, color-mix(in srgb, var(--widget-surface) 79%, transparent),
-      color-mix(in srgb, var(--widget-surface) 90%, transparent));
   position: relative;
   padding: var(--padding, 10px);
-  background: var(--widget-surface);
   color: var(--widget-ink);
   gap: .45em;
 }
@@ -21,7 +17,15 @@
 .widget-v2.high-contrast, .widget-v2:focus-within {
   border-color: var(--widget-line);
 }
-.widget-v2.high-contrast { --widget-surface: #0b0b10; --widget-ink: #fff; --widget-line: #fff; }
+.widget-v2.high-contrast {
+  --widget-surface: #0b0b10;
+  --widget-ink: #fff;
+  --widget-line: #fff;
+  background: var(--widget-surface);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .widget-v2:not(.widget-weather-only) { background: var(--widget-surface); }
+}
 .widget-v2 > .widget-label, .widget-v2-label { color: var(--widget-line); }
 .widget-v2-layout {
   display: grid;
