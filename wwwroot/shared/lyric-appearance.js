@@ -1,5 +1,7 @@
 'use strict';
 
+const lyricLineLeadMs = 100;
+
 function applyLyricAppearance(view, appearance) {
   view.dataset.backgroundMode = appearance.backgroundMode ?? 'fixed';
   const blend = appearance.flowBlend ?? 0;

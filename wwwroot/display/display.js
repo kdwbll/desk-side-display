@@ -104,11 +104,13 @@ function refreshScreen(now) {
     state.positionMs + (state.playing ? Math.min(elapsed, 1200) * state.rate : 0));
   const position = Math.max(0, playback + (state.lyricOffsetMs ?? 0) +
     sectionCorrection(playback, state.durationMs, state.lyricTimingPoints ?? []));
+  // Start the line transition early while word fills follow the original clock.
+  const linePosition = position + lyricLineLeadMs;
   let low = 0;
   let high = state.lines.length;
   while (low < high) {
     const middle = Math.floor((low + high) / 2);
-    if (state.lines[middle].atMs <= position) low = middle + 1;
+    if (state.lines[middle].atMs <= linePosition) low = middle + 1;
     else high = middle;
   }
   const index = low - 1;
@@ -121,7 +123,7 @@ function refreshScreen(now) {
       index >= 0 && index === activeIndex + 1 && !reducedMotion.matches &&
       position >= displayedPosition && position - displayedPosition < 480;
     const nextAt = state.lines[index + 1]?.atMs ?? Infinity;
-    const untilNextLine = (nextAt - position) / (state.rate || 1);
+    const untilNextLine = (nextAt - linePosition) / (state.rate || 1);
     const duration = smooth ? Math.max(210, Math.min(460, untilNextLine * .86)) : 0;
     renderLyrics(state.lines, index, note, duration);
     lineKey = key;
