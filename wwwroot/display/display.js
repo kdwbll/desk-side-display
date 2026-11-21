@@ -38,7 +38,7 @@ let clockMinute;
 let fills = [];
 let waveUnits = [];
 let lyricWaves = [];
-const lyricWaveRadius = 1.5;
+const lyricWaveRadius = 1;
 const lyricWaveTailMs = 180;
 let transitions = [];
 let departingLine;
