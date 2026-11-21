@@ -21,6 +21,7 @@ main:has(#page-backdrop > .album-flow:not([hidden])) #wallpaper { padding: 2.5cq
 #dashboard-widgets { flex: 1; min-height: 0; grid-auto-rows: minmax(7.5em, 1fr); overflow: auto; }
 #dashboard-widgets:has(.widget-v2, .widget-music), #page-widgets:has(.widget-v2, .widget-music) { grid-auto-rows: max-content; }
 #dashboard-widgets, #page-widgets { touch-action: pan-y; }
+.clipboard-page #dashboard-widgets { overflow: visible; }
 #dashboard-empty { margin: auto; }
 #page-widgets {
   flex-shrink: 0;

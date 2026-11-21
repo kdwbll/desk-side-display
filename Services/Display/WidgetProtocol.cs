@@ -28,7 +28,8 @@ sealed record WidgetBlock(string Kind, string? Source = null, string? Text = nul
     string? Icon = null, string? Fallback = null, string? ValueType = null, int? MaxLength = null,
     int? Span = null, int? Rows = null, string? Align = null, double? FontScale = null, double? Min = null,
     double? Max = null, WidgetFormat? Format = null, WidgetAction? Action = null,
-    bool? HideWhenEmpty = null, string? FileDisplay = null, string? Shape = null);
+    bool? HideWhenEmpty = null, string? FileDisplay = null, string? Shape = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? Transparency = null);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 sealed record WidgetLayout(int? Columns = null, int? Gap = null, int? Padding = null, string? Align = null,
     bool? FirstPresent = null);
@@ -167,7 +168,8 @@ static class WidgetProtocol
             (block.Min != null && block.Max != null && block.Min >= block.Max) ||
             (block.Source != null && !Known(block.Source)) ||
             (block.FileDisplay != null && (block.Kind != "files" || block.FileDisplay is not ("icon" or "preview"))) ||
-            (block.Shape != null && (block.Kind != "weather" || block.Shape is not ("card" or "round" or "capsule" or "square"))))
+            (block.Shape != null && (block.Kind != "weather" || block.Shape is not ("card" or "round" or "capsule" or "square"))) ||
+            (block.Transparency != null && (block.Kind != "weather" || block.Transparency is < 0 or > 100)))
             return false;
         if (block.Action != null && (!ValidAction(block.Action) || !ValidBlockAction(block)))
             return false;

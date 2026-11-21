@@ -9,9 +9,12 @@
   --sky-bottom: #1c344c;
   --cloud: #c8e3ff;
   --orb: #ffe687;
-  --glass-face: radial-gradient(ellipse at 85% -12%, #e3f4ff29, transparent 67%),
-    linear-gradient(130deg, color-mix(in srgb, var(--sky-top) 70%, transparent),
-      color-mix(in srgb, var(--sky-bottom) 66%, transparent));
+  --weather-opacity: .7;
+  --weather-color-weight: calc(var(--weather-opacity) * 100%);
+  --glass-face: radial-gradient(ellipse at 85% -12%,
+      color-mix(in srgb, #e3f4ff3b var(--weather-color-weight), transparent), transparent 67%),
+    linear-gradient(130deg, color-mix(in srgb, var(--sky-top) var(--weather-color-weight), transparent),
+      color-mix(in srgb, var(--sky-bottom) var(--weather-color-weight), transparent));
   position: relative;
   isolation: isolate;
   display: grid;
@@ -28,6 +31,9 @@
   color: #f6fcff;
   text-align: start;
   container-type: inline-size;
+}
+@media not (prefers-reduced-transparency: reduce) {
+  .widget-weather { background: var(--glass-face); }
 }
 .widget-weather[data-condition="clear"] { --sky-top: #257eae; --sky-bottom: #1b416e; }
 .widget-weather[data-condition="partly"] { --sky-top: #477fab; --sky-bottom: #264063; }

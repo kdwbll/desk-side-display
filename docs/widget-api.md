@@ -87,7 +87,7 @@
 
 v1 导入和已保存的 v1 组件可继续使用。要迁移，可在「编辑组件 JSON」中把 `version` 改为 `2`，加可选的 `"migratedFrom": 1`，保留原模板，再按需添加布局块。 `widget` 和 `kind` 是可选的社区组件标识与分类。带 `x-` 前缀的顶层元数据会随组件保存，并可由社区扩展读取。自定义数据提供者可以先用注册接口接入。要增加原生来源或布局类型，可分别改动 `WidgetSources`、`WidgetProtocol`、`widget-v2.js` 和 Schema。
 
-保存界面时，自定义组件会同步加入 Windows 面板的可复用列表。同一个 `widget` 标识共用一份定义，每次添加会创建独立的组件实例。随附的[天气组件](../wwwroot/shared/examples/weather-widget.json)用 `kind: "weather"` 的布局块，把 `shape` 设为 `card`、`round`、`capsule` 或 `square`。动画来自当前天气与系统的减少动态效果设置。
+保存界面时，自定义组件会同步加入 Windows 面板的可复用列表。同一个 `widget` 标识共用一份定义，每次添加会创建独立的组件实例。随附的[天气组件](../wwwroot/shared/examples/weather-widget.json)用 `kind: "weather"` 的布局块，把 `shape` 设为 `card`、`round`、`capsule` 或 `square`。可选的 `transparency` 为 0 到 100 的整数，默认 30。0 为实色，100 为透明。动画来自当前天气与系统的减少动态效果设置。
 
 ## v1 示例
 

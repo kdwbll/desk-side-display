@@ -23,6 +23,9 @@
 .page-properties input[type=color], .widget-fields input[type=color] { width: 48px; height: 36px; }
 .page-properties { margin-top: 16px; }
 .page-properties input[type=text], .widget-fields input[type=text], .widget-fields select { width: 100%; }
+.widget-fields .weather-transparency { grid-template-columns: minmax(0, 1fr) auto; min-width: min(100%, 216px); }
+.weather-transparency output { color: var(--quiet); font-variant-numeric: tabular-nums; }
+.weather-transparency input { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--selected); }
 .page-widget-editor {
   margin: 8px 0;
   padding: 12px;
@@ -42,7 +45,7 @@
   color: white;
   background: var(--preview-background, #1e2030);
   font-size: 14px;
-  container-type: inline-size;
+  container-type: size;
 }
 .widget-layout-tools { justify-content: space-between; gap: 5px 10px; }
 .widget-layout-tools[hidden], #page-detail .widget-layout-preview[hidden] { display: none; }
@@ -95,6 +98,7 @@
 .layout-preview-photo { display: grid; place-items: center; opacity: 1; }
 .layout-preview-wallpaper { display: block; width: 100%; height: 100%; min-height: 0; object-fit: contain; }
 .widget-layout-preview:has(.album-flow:not([hidden])) .layout-preview-scene { background: transparent; }
+.widget-layout-preview.clipboard-page .layout-preview-scene strong { display: none; }
 .layout-preview-custom, .layout-preview-hardware { background: var(--dashboard-light); opacity: 1; }
 .widget-layout-preview .widget-placed {
   cursor: move;

@@ -53,7 +53,9 @@ const phonePages = (() => {
       ? widgetV2.make(widget, capability && actionsEnabled ? runAction : null)
       : deskWidgets.make(widget, capability && shortcutsEnabled ? press : null,
         capability && actionsEnabled ? controlMusic : null, openNote));
-    const free = widgetPlacement.isFree(page);
+    const clipboardPage = widgetPlacement.isClipboardPage(page);
+    if (clipboardPage) tiles[0].element.classList.add('clipboard-page-card');
+    const free = !clipboardPage && widgetPlacement.isFree(page);
     const rects = free ? widgetPlacement.resolve(page) : null;
     const roots = free ? tiles.map((tile, i) => widgetPlacement.frame(tile.element, rects[i]))
       : tiles.map(tile => tile.element);
@@ -63,7 +65,7 @@ const phonePages = (() => {
       references.some(([, keys]) => keys.some(key => /^(cpu|gpu|ram)\./.test(key)));
     const intervals = references.filter(([, keys]) => keys.some(key => widgetV2.serverGroups.has(key.split('.')[0])))
       .map(([widget]) => widget.manifest.refreshMs ?? 2000);
-    return { page, expanded, tiles, roots, free, needsMetrics, dataDue: 0,
+    return { page, expanded, tiles, roots, free, clipboardPage, needsMetrics, dataDue: 0,
       dataInterval: intervals.length ? Math.min(...intervals) : undefined };
   }
 
@@ -79,7 +81,8 @@ const phonePages = (() => {
     }
     if (!pageViews.has(page)) pageViews.set(page, createPageView(page));
     const view = pageViews.get(page);
-    const { expanded, tiles, roots, free } = view;
+    const { expanded, tiles, roots, free, clipboardPage } = view;
+    dashboard.classList.toggle('clipboard-page', Boolean(clipboardPage));
     stage.replaceChildren(...(free ? roots : []));
     grid.replaceChildren(...(!free && expanded ? roots : []));
     strip.replaceChildren(...(!free && !expanded ? roots : []));
@@ -91,14 +94,14 @@ const phonePages = (() => {
     const pageName = page.name.trim();
     const pageNumber = '第 ' + (pages.indexOf(page) + 1) + ' 页';
     heading.textContent = pageName;
-    heading.hidden = !pageName;
+    heading.hidden = !pageName || clipboardPage;
     if (expanded) {
-      if (pageName) {
+      if (!heading.hidden) {
         dashboard.setAttribute('aria-labelledby', heading.id);
         dashboard.removeAttribute('aria-label');
       } else {
         dashboard.removeAttribute('aria-labelledby');
-        dashboard.setAttribute('aria-label', pageNumber);
+        dashboard.setAttribute('aria-label', pageName || pageNumber);
       }
     }
     dashboard.style.setProperty('--dashboard-background', page.color);

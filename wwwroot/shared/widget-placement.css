@@ -1,3 +1,24 @@
+.clipboard-page .clipboard-page-card {
+  position: absolute;
+  inset: clamp(8px, 4cqh, 24px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+}
+.clipboard-page-card .widget-v2-layout {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.clipboard-page-card .widget-v2-history { display: flex; flex-direction: column; min-height: 0; }
+.clipboard-page-card .widget-v2-history-list {
+  max-height: none;
+  padding-inline: 0;
+  scrollbar-gutter: stable both-edges;
+}
+.clipboard-page-card .widget-v2-empty { margin: auto; }
+
 .widget-stage {
   position: absolute;
   inset: 0;

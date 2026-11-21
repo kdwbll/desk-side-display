@@ -45,7 +45,9 @@ function manifestValid(manifest) {
       !/^#[\da-f]{6}$/i.test(manifest.color)) return false;
   if (manifest.version === 1) return typeof manifest.template === 'string';
   return manifest.blocks === undefined || (Array.isArray(manifest.blocks) && manifest.blocks.length <= 16 &&
-    manifest.blocks.every(block => block && typeof block.kind === 'string'));
+    manifest.blocks.every(block => block && typeof block.kind === 'string' &&
+      (block.transparency == null || (block.kind === 'weather' && Number.isInteger(block.transparency) &&
+        block.transparency >= 0 && block.transparency <= 100))));
 }
 
 function saveImage(form, types) {

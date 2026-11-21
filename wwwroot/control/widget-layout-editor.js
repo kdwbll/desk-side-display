@@ -47,6 +47,7 @@ window.widgetLayoutEditor = (() => {
       if (active) selected = frame;
     }
     const dimensions = stage.querySelector('.layout-dimensions');
+    if (!dimensions) return;
     dimensions.hidden = !selected;
     sizeControls.tools.hidden = !selected;
     sizeControls.note.textContent = '';
@@ -135,6 +136,16 @@ window.widgetLayoutEditor = (() => {
   }
 
   function render(stage, page, tileFor, changed, pixelTools) {
+    const clipboardPage = widgetPlacement.isClipboardPage(page);
+    stage.classList.toggle('clipboard-page', Boolean(clipboardPage));
+    if (clipboardPage) {
+      const tile = tileFor(page.widgets[0]);
+      tile.classList.add('clipboard-page-card');
+      sizeObserver.disconnect();
+      pixelTools.hidden = true;
+      stage.replaceChildren(background(page), tile);
+      return;
+    }
     const rects = widgetPlacement.resolve(page);
     const frames = [];
     const guides = axes.map(axis => {

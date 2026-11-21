@@ -95,9 +95,10 @@
       backdrop-filter: blur(2px);
     }
     .widget .widget-weather {
-      background: var(--glass-face);
-      -webkit-backdrop-filter: blur(8px) saturate(145%) brightness(.88);
-      backdrop-filter: blur(8px) saturate(145%) brightness(.88);
+      --weather-filter: blur(calc(11.4px * var(--weather-opacity)))
+        saturate(calc(1 + .64 * var(--weather-opacity))) brightness(calc(1 - .17 * var(--weather-opacity)));
+      -webkit-backdrop-filter: var(--weather-filter);
+      backdrop-filter: var(--weather-filter);
     }
     .widget:not(.widget-weather-only, .high-contrast)::after, .widget-weather::after {
       -webkit-backdrop-filter: blur(1px) brightness(1.16);
