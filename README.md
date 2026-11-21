@@ -32,7 +32,7 @@
 
 ## Windows 控制面板
 
-<img src="docs/screenshots/windows-widget-layout.png" width="595" alt="Windows 控制面板的界面与小组件区域，展示页面排序、预设选择、卡片吸附对齐线和像素宽高输入">
+<img src="docs/screenshots/windows-widget-layout.png" width="740" alt="Windows 控制面板的页面顺序、横屏预览和组件像素宽高输入">
 
 - **界面与小组件**用于排序页面、添加预设和挑选组件。拖动卡片会吸附到附近卡片的边缘或中心。拉伸可匹配等宽等高，选中卡片后也可输入像素宽高。
 - **组件数据源与权限**用于设置天气地点，启用便签等组件动作，以及配置剪贴板历史、窗口信息和自定义数据源。也可使用 AI 生成可导入的 JSON 组件。 [小组件规范](docs/widget-api.md)

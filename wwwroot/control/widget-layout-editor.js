@@ -30,9 +30,9 @@ window.widgetLayoutEditor = (() => {
   function background(page) {
     const layer = node('div', 'layout-preview-scene layout-preview-' + page.kind);
     layer.setAttribute('aria-hidden', 'true');
-    if (page.kind === 'clock') layer.append(node('strong', '', '10:24'), node('span', '', '11月20日 星期五'));
-    else if (page.kind === 'lyrics') layer.append(node('span', 'layout-preview-cover'),
-      node('strong', '', '歌词会显示在这里'));
+    if (page.kind === 'clock') layer.append(node('time'), node('span'));
+    else if (page.kind === 'lyrics') layer.append(node('img', 'layout-preview-cover'), node('strong'));
+    else if (page.kind === 'photo') layer.append(node('img', 'layout-preview-wallpaper'));
     else if (page.name.trim() && (page.kind === 'hardware' || page.kind === 'custom'))
       layer.append(node('strong', '', page.name));
     return layer;
