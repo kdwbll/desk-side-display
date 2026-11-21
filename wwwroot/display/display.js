@@ -23,6 +23,8 @@ const clockFormat = new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: 
 const dateFormat = new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
 let state;
 let sampleTime = 0;
+const stateTimeoutMs = 5000;
+let playbackClock;
 let wakeLock;
 let lineKey;
 let activeIndex;
@@ -60,9 +62,42 @@ function setImage(id, url) {
   image.src = url;
 }
 
+function playbackAt(now) {
+  if (!playbackClock) return 0;
+  const elapsed = Math.max(0, now - playbackClock.at);
+  const correction = playbackClock.drift * Math.min(1, elapsed / playbackClock.adjustMs);
+  return Math.max(0, Math.min(state.durationMs ?? Infinity,
+    playbackClock.position + elapsed * playbackClock.rate + correction));
+}
+
+function syncPlaybackClock(next, sent, received) {
+  if (!Number.isFinite(next.positionMs)) {
+    playbackClock = undefined;
+    return;
+  }
+  const rate = next.playing ? next.rate : 0;
+  const sameTransport = playbackClock && next.song?.id === state?.song?.id &&
+    next.playing === state.playing && rate === playbackClock.rate;
+  const roundTrip = received - sent;
+  // A late same-track sample cannot pinpoint the current position accurately.
+  if (sameTransport && rate > 0 && roundTrip > 500 && received - playbackClock.at < stateTimeoutMs) return;
+  const observed = next.positionMs + roundTrip * rate / 2;
+  const predicted = playbackAt(received);
+  const error = observed - predicted;
+  const smooth = sameTransport && rate > 0 && Math.abs(error) < 900;
+  const drift = smooth && Math.abs(error) >= 25 ? error : 0;
+  playbackClock = {
+    at: received,
+    position: smooth ? predicted : observed,
+    rate,
+    drift,
+    adjustMs: Math.max(600, Math.abs(drift) / .18 / (rate || 1))
+  };
+}
+
 function refreshScreen(now) {
   const elapsed = now - sampleTime;
-  const defaultMode = !state || (state.mode === 'lyrics' && elapsed > 5000) ? 'clock' : state.mode;
+  const defaultMode = !state || (state.mode === 'lyrics' && elapsed > stateTimeoutMs) ? 'clock' : state.mode;
   const mode = phonePages.show(defaultMode, state);
   if (shownMode !== mode) {
     stopLyricMotion();
@@ -92,7 +127,7 @@ function refreshScreen(now) {
     activeIndex = undefined;
   }
 
-  if (!state || elapsed > 5000) {
+  if (!state || elapsed > stateTimeoutMs) {
     if (lineKey !== 'offline') {
       renderLyrics([], -1, '等待 Windows 连接');
       lineKey = 'offline';
@@ -100,8 +135,7 @@ function refreshScreen(now) {
     }
     return;
   }
-  const playback = Math.min(state.durationMs ?? Infinity,
-    state.positionMs + (state.playing ? Math.min(elapsed, 1200) * state.rate : 0));
+  const playback = playbackAt(now);
   const position = Math.max(0, playback + (state.lyricOffsetMs ?? 0) +
     sectionCorrection(playback, state.durationMs, state.lyricTimingPoints ?? []));
   // Start the line transition early while word fills follow the original clock.
@@ -283,9 +317,11 @@ async function refreshState() {
     const start = performance.now();
     const response = await fetch('/api/state', { signal: AbortSignal.timeout(2500) });
     if (response.ok) {
+      const next = await response.json();
       const received = performance.now();
-      state = await response.json();
-      sampleTime = (start + received) / 2;
+      syncPlaybackClock(next, start, received);
+      state = next;
+      sampleTime = received;
       const nextAppearance = JSON.stringify(state.lyricAppearance);
       if (state.lyricAppearance && nextAppearance !== appearanceKey) {
         applyLyricAppearance(lyricView, state.lyricAppearance);

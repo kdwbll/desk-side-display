@@ -100,7 +100,7 @@ app.MapGet("/api/state", (HttpContext context, AppleMusic player, PanelSettings 
     var recentSong = state.Song != null &&
         (state.Playing || (state.Paused && DateTimeOffset.UtcNow - state.LastPlaying < TimeSpan.FromSeconds(15)));
     var mode = selectedMode == "auto" ? (recentSong ? "lyrics" : idle) : selectedMode;
-    var age = Math.Clamp((DateTimeOffset.UtcNow - state.SampledAt).TotalMilliseconds, 0, 4_000);
+    var age = state.SampledAt == 0 ? 0 : Math.Clamp(Stopwatch.GetElapsedTime(state.SampledAt).TotalMilliseconds, 0, 5_000);
     double? position = state.PositionMs == null ? null : Math.Min(
         state.DurationMs ?? double.MaxValue, state.PositionMs.Value + (state.Playing ? age * state.Rate : 0));
     var control = context.Connection.LocalPort == controlPort ? new
