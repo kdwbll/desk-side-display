@@ -74,7 +74,7 @@
     } else updateBackdrop(page, state);
     if (page.kind === 'lyrics') {
       const position = (state?.positionMs ?? 0) + (state?.lyricOffsetMs ?? 0);
-      scene.querySelector('strong').textContent = state?.lines?.findLast(line => line.atMs <= position)?.text
+      scene.querySelector('strong').textContent = state?.lines?.findLast(line => line.atMs <= position + lyricLineLeadMs)?.text
         || state?.song?.title || '等待播放';
     } else if (page.kind === 'clock') {
       const now = new Date();
