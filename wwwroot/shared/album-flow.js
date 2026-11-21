@@ -50,22 +50,49 @@ function albumPalette(image) {
   return centers.sort((a, b) => b.weight - a.weight);
 }
 
+function albumBackgroundColor({ rgb, weight }) {
+  const peak = Math.max(...rgb);
+  const luma = rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
+  const strength = Math.min(1, Math.max(0, (peak - 18) / 48));
+  const lift = 1 + .09 * strength * (1 - peak / 255);
+  const channels = rgb.map(channel => Math.max(0, Math.min(255,
+    (channel + (channel - luma) * .12 * strength) * lift)));
+  return { rgb: channels, weight, luma };
+}
+
 function paintAlbumField(canvas, palette) {
-  // Rank a smooth field, then allocate exactly each cluster's share of its pixels.
   const width = canvas.width = 96, height = canvas.height = 64;
   const context = canvas.getContext('2d');
   const field = context.createImageData(width, height);
   const points = Array.from({ length: width * height }, (_, i) => {
     const x = (i % width) / width * 2 * Math.PI, y = Math.floor(i / width) / height * 2 * Math.PI;
-    return { i, value: Math.sin(x + .8 * Math.cos(y)) + .75 * Math.cos(y - x) + .6 * Math.sin(2*x + y) };
+    // One broad sweep across the screen, with gently curved contours.
+    return { i, value: x + .46 * y + 1.9 * Math.sin(.66 * y + .36 * x) };
   }).sort((a, b) => a.value - b.value);
+  const colors = palette.map(albumBackgroundColor).sort((a, b) => a.luma - b.luma);
   const total = palette.reduce((sum, c) => sum + c.weight, 0);
-  let at = 0, weight = 0;
-  for (const color of palette) {
-    weight += color.weight;
-    const end = Math.round(points.length * weight / total);
-    const rgba = [...color.rgb, 255];
-    while (at < end) field.data.set(rgba, points[at++].i * 4);
+  // Blend symmetrically around each weighted boundary, preserving small accents.
+  let boundary = 0;
+  const seams = colors.slice(0, -1).map((color, i) => {
+    boundary += color.weight / total;
+    const radius = .49 * Math.min(color.weight, colors[i + 1].weight) / total;
+    return { start: boundary - radius, end: boundary + radius };
+  });
+  let band = 0;
+  for (let rank = 0; rank < points.length; rank++) {
+    const position = (rank + .5) / points.length;
+    while (band < seams.length && position >= seams[band].end) band++;
+    const seam = seams[band];
+    const rgb = colors[band].rgb;
+    const offset = points[rank].i * 4;
+    if (seam && position > seam.start) {
+      const t = (position - seam.start) / (seam.end - seam.start);
+      const mix = t * t * (3 - 2 * t);
+      for (let c = 0; c < 3; c++) field.data[offset + c] = rgb[c] + (colors[band + 1].rgb[c] - rgb[c]) * mix;
+    } else {
+      field.data.set(rgb, offset);
+    }
+    field.data[offset + 3] = 255;
   }
   context.putImageData(field, 0, 0);
 }
