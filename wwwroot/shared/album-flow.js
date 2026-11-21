@@ -60,41 +60,57 @@ function albumBackgroundColor({ rgb, weight }) {
   return { rgb: channels, weight, luma };
 }
 
-function paintAlbumField(canvas, palette) {
-  const width = canvas.width = 96, height = canvas.height = 64;
-  const context = canvas.getContext('2d');
-  const field = context.createImageData(width, height);
-  const points = Array.from({ length: width * height }, (_, i) => {
+const fieldWidth = 96, fieldHeight = 64;
+let fieldOrder;
+function albumFieldOrder(width, height) {
+  return Array.from({ length: width * height }, (_, i) => {
     const x = (i % width) / width * 2 * Math.PI, y = Math.floor(i / width) / height * 2 * Math.PI;
     // One broad sweep across the screen, with gently curved contours.
     return { i, value: x + .46 * y + 1.9 * Math.sin(.66 * y + .36 * x) };
-  }).sort((a, b) => a.value - b.value);
+  }).sort((a, b) => a.value - b.value).map(point => point.i);
+}
+
+function paintAlbumField(canvas, palette, blend = 0) {
+  canvas.width = fieldWidth;
+  canvas.height = fieldHeight;
+  const context = canvas.getContext('2d');
+  const field = context.createImageData(fieldWidth, fieldHeight);
+  const points = fieldOrder ??= albumFieldOrder(fieldWidth, fieldHeight);
   const colors = palette.map(albumBackgroundColor).sort((a, b) => a.luma - b.luma);
   const total = palette.reduce((sum, c) => sum + c.weight, 0);
   // Blend symmetrically around each weighted boundary, preserving small accents.
   let boundary = 0;
   const seams = colors.slice(0, -1).map((color, i) => {
     boundary += color.weight / total;
-    const radius = .49 * Math.min(color.weight, colors[i + 1].weight) / total;
+    const radius = .49 * (1 + blend / 100) * Math.min(color.weight, colors[i + 1].weight) / total;
     return { start: boundary - radius, end: boundary + radius };
   });
-  let band = 0;
+  const rgb = new Float64Array(3);
   for (let rank = 0; rank < points.length; rank++) {
     const position = (rank + .5) / points.length;
-    while (band < seams.length && position >= seams[band].end) band++;
-    const seam = seams[band];
-    const rgb = colors[band].rgb;
-    const offset = points[rank].i * 4;
-    if (seam && position > seam.start) {
-      const t = (position - seam.start) / (seam.end - seam.start);
+    rgb.set(colors[0].rgb);
+    for (let band = 0; band < seams.length; band++) {
+      const { start, end } = seams[band];
+      if (position < start) break;
+      if (position >= end) {
+        rgb.set(colors[band + 1].rgb);
+        continue;
+      }
+      const t = (position - start) / (end - start);
       const mix = t * t * (3 - 2 * t);
-      for (let c = 0; c < 3; c++) field.data[offset + c] = rgb[c] + (colors[band + 1].rgb[c] - rgb[c]) * mix;
-    } else {
-      field.data.set(rgb, offset);
+      for (let c = 0; c < 3; c++) rgb[c] += (colors[band + 1].rgb[c] - colors[band].rgb[c]) * mix;
     }
+    const offset = points[rank] * 4;
+    field.data.set(rgb, offset);
     field.data[offset + 3] = 255;
   }
   context.putImageData(field, 0, 0);
+}
+
+function setAlbumDriftSpeed(element, speed) {
+  for (const animation of element.getAnimations({ subtree: true })) {
+    if (animation.animationName === 'album-drift') animation.updatePlaybackRate(speed);
+  }
 }
 
 function createAlbumFlow(view) {
@@ -104,10 +120,20 @@ function createAlbumFlow(view) {
   layer.hidden = true;
   const canvases = [document.createElement('canvas'), document.createElement('canvas')];
   layer.append(...canvases);
+  // CSS recreates animations after the lyrics page is shown or reduced motion is disabled.
+  layer.addEventListener('animationstart', event => {
+    if (event.animationName === 'album-drift') setAlbumDriftSpeed(event.target, Number(view.dataset.flowSpeed ?? 1));
+  });
   view.prepend(layer);
+  let activePalette, blend = 0;
   let source, generation = 0, active = 0, retryAfter = 0;
   return async function update(url, cover) {
     const next = view.dataset.backgroundMode === 'album' ? url || null : null;
+    const nextBlend = Number(view.dataset.flowBlend ?? 0);
+    if (nextBlend !== blend) {
+      blend = nextBlend;
+      if (next && activePalette && !layer.hidden) paintAlbumField(canvases[active], activePalette, blend);
+    }
     if (next === source && (!retryAfter || performance.now() < retryAfter)) return;
     const request = ++generation;
     source = next;
@@ -121,7 +147,8 @@ function createAlbumFlow(view) {
       const palette = albumPalette(image);
       if (!palette.length) { layer.hidden = true; return; }
       active = 1 - active;
-      paintAlbumField(canvases[active], palette);
+      activePalette = palette;
+      paintAlbumField(canvases[active], palette, blend);
       canvases.forEach((canvas, i) => canvas.classList.toggle('visible', i === active));
       layer.hidden = false;
     } catch {
