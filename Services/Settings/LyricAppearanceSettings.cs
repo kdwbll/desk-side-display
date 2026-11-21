@@ -2,13 +2,14 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 
 sealed record LyricAppearance(string TextColor, int ContextOpacity, decimal Blur, string BackgroundColor,
-    string BackgroundMode = "fixed")
+    string BackgroundMode = "fixed", decimal FlowSpeed = 1m, int FlowBlend = 0)
 {
     public static LyricAppearance Default { get; } = new("#f8f1e8", 29, 0.8m, "#171923");
 
     public bool IsValid() =>
         IsColor(TextColor) && IsColor(BackgroundColor) && BackgroundMode is "fixed" or "album" &&
-        ContextOpacity is >= 0 and <= 100 && Blur is >= 0 and <= 6;
+        ContextOpacity is >= 0 and <= 100 && Blur is >= 0 and <= 6 &&
+        FlowSpeed is >= 0 and <= 3 && FlowBlend is >= -100 and <= 100;
 
     private static bool IsColor(string? value) => value != null && Regex.IsMatch(value, @"\A#[0-9a-fA-F]{6}\z");
 }

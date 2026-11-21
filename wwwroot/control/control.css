@@ -44,6 +44,7 @@ section { border: 1px solid var(--line); border-radius: 12px; background: var(--
 }
 .appearance-fields label:has(output), .appearance-fields input[type=range] { grid-column: 1 / -1; }
 .appearance-fields label:has(output) { display: flex; gap: 6px; justify-content: space-between; }
+.appearance-fields label[hidden], .appearance-fields input[hidden] { display: none; }
 .appearance-fields output, #lyric-preset-count { color: var(--quiet); font-variant-numeric: tabular-nums; }
 .appearance-fields input[type=range] { width: 100%; accent-color: var(--selected); margin: 1px 0 4px; }
 .appearance-fields input[type=color] { width: 48px; height: 32px; padding: 2px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }

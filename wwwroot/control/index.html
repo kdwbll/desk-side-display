@@ -129,6 +129,10 @@
             <option value="fixed">固定底色</option>
             <option value="album">专辑流光</option>
           </select>
+          <label for="lyric-flow-speed" hidden>流光速度 <output id="lyric-flow-speed-value" for="lyric-flow-speed">1×</output></label>
+          <input id="lyric-flow-speed" type="range" min="0" max="3" step="0.25" value="1" hidden>
+          <label for="lyric-flow-blend" hidden>色块过渡 <output id="lyric-flow-blend-value" for="lyric-flow-blend">0</output></label>
+          <input id="lyric-flow-blend" type="range" min="-100" max="100" step="1" value="0" hidden>
           <label for="lyric-background-color">背景颜色</label>
           <input id="lyric-background-color" type="color" value="#171923">
           <label for="lyric-opacity">周围歌词不透明度 <output id="lyric-opacity-value" for="lyric-opacity">29%</output></label>

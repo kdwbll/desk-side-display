@@ -6,6 +6,10 @@ const presetFields = document.getElementById('appearance-presets');
 const textColor = document.getElementById('lyric-text-color');
 const backgroundColor = document.getElementById('lyric-background-color');
 const backgroundMode = document.getElementById('lyric-background-mode');
+const flowSpeed = document.getElementById('lyric-flow-speed');
+const flowSpeedValue = document.getElementById('lyric-flow-speed-value');
+const flowBlend = document.getElementById('lyric-flow-blend');
+const flowBlendValue = document.getElementById('lyric-flow-blend-value');
 const updatePreviewFlow = createAlbumFlow(preview);
 document.addEventListener('playback-cover', event => updatePreviewFlow(event.detail));
 const opacity = document.getElementById('lyric-opacity');
@@ -30,12 +34,18 @@ let writeQueue = Promise.resolve();
 
 function readAppearance() {
   return { textColor: textColor.value, backgroundColor: backgroundColor.value, backgroundMode: backgroundMode.value,
+    flowSpeed: flowSpeed.valueAsNumber, flowBlend: flowBlend.valueAsNumber,
     contextOpacity: opacity.valueAsNumber, blur: blur.valueAsNumber };
 }
 
 function updatePreview(appearance) {
   applyLyricAppearance(preview, appearance);
   updatePreviewFlow(state?.cover);
+  flowSpeed.hidden = flowSpeed.labels[0].hidden = appearance.backgroundMode !== 'album';
+  flowBlend.hidden = flowBlend.labels[0].hidden = flowSpeed.hidden;
+  flowBlendValue.textContent = (flowBlend.valueAsNumber > 0 ? '+' : '') + flowBlend.value;
+  flowSpeedValue.textContent = flowSpeed.valueAsNumber === 0 ? '静止' : flowSpeed.value + '×';
+  flowSpeed.setAttribute('aria-valuetext', flowSpeedValue.textContent);
   opacityValue.textContent = appearance.contextOpacity + '%';
   blurValue.textContent = appearance.blur.toFixed(1) + ' px';
 }
@@ -44,6 +54,8 @@ function loadAppearance(appearance) {
   textColor.value = appearance.textColor;
   backgroundColor.value = appearance.backgroundColor;
   backgroundMode.value = appearance.backgroundMode ?? 'fixed';
+  flowSpeed.value = appearance.flowSpeed ?? 1;
+  flowBlend.value = appearance.flowBlend ?? 0;
   opacity.value = appearance.contextOpacity;
   blur.value = appearance.blur;
   updatePreview(appearance);
@@ -64,6 +76,7 @@ function renderPresets(items, selected = presetList.value) {
 
 function flushAppearance() {
   clearTimeout(saveTimer);
+  saveTimer = undefined;
   if (!staged) return;
   const { appearance, revision } = staged;
   staged = undefined;
@@ -81,8 +94,7 @@ appearanceFields.addEventListener('input', () => {
   const appearance = readAppearance();
   updatePreview(appearance);
   staged = { appearance, revision: ++edit };
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(flushAppearance, 150);
+  saveTimer ??= setTimeout(flushAppearance, 150);
 });
 appearanceFields.addEventListener('change', flushAppearance);
 
