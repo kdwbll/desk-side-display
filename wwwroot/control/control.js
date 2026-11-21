@@ -1,6 +1,19 @@
 'use strict';
 
 const usb = document.getElementById('usb');
+const playbackCover = document.getElementById('control-cover');
+playbackCover.addEventListener('load', () => { playbackCover.hidden = false; });
+playbackCover.addEventListener('error', () => { playbackCover.hidden = true; });
+const consoleLinks = document.querySelectorAll('.console-rail nav a');
+function markConsoleLocation() {
+  const current = location.hash || '#display';
+  for (const link of consoleLinks) {
+    if (link.hash === current) link.setAttribute('aria-current', 'location');
+    else link.removeAttribute('aria-current');
+  }
+}
+window.addEventListener('hashchange', markConsoleLocation);
+markConsoleLocation();
 const song = document.getElementById('song');
 const timeline = document.getElementById('timeline');
 const idle = document.getElementById('idle');
@@ -52,6 +65,7 @@ function durationText(milliseconds) {
 function render() {
   const status = state?.control;
   if (!status) {
+    usb.dataset.connected = 'false';
     modes.forEach(button => { button.disabled = true; });
     playback.forEach(button => { button.disabled = true; });
     adjustments.forEach(button => { button.disabled = true; });
@@ -61,6 +75,13 @@ function render() {
     return;
   }
   usb.textContent = usbMessages[status.usb] ?? usbMessages.error;
+  usb.dataset.connected = String(status.usb === 'ready');
+  const coverUrl = state.cover ?? '';
+  if (playbackCover.getAttribute('src') !== coverUrl) {
+    playbackCover.hidden = true;
+    if (coverUrl) playbackCover.src = coverUrl;
+    else playbackCover.removeAttribute('src');
+  }
   song.textContent = state.song ? [state.song.title, state.song.artist].filter(Boolean).join(' · ')
     : status.status === 'error' ? '无法读取 Windows 媒体会话' : '等待 Apple Music 播放';
   const progress = state.positionMs == null ? (state.song ? 'Apple Music 未提供播放进度' : '')

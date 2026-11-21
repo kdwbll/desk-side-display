@@ -25,43 +25,63 @@
 </head>
 <body>
   <main>
-    <header>
-      <h1>桌面副屏</h1>
+    <header class="console-header">
+      <div class="console-brand">
+        <span class="screen-mark" aria-hidden="true"></span>
+        <h1>桌面副屏</h1>
+      </div>
       <p id="usb" aria-live="polite">正在检查 USB 连接</p>
     </header>
-    <section aria-labelledby="display-heading">
+    <aside class="console-rail">
+      <nav aria-label="控制面板栏目">
+        <a href="#display">手机显示</a>
+        <a href="#pages">界面与小组件</a>
+        <a href="#appearance">歌词外观</a>
+        <a href="#music">Apple Music</a>
+      </nav>
+      <p class="connection-address">手机浏览器地址 <code>http://127.0.0.1:8765/</code></p>
+    </aside>
+    <section id="display" aria-labelledby="display-heading">
       <h2 id="display-heading">手机显示</h2>
-      <div class="modes" role="group" aria-label="手机显示模式">
-        <button type="button" data-mode="auto" aria-pressed="true" disabled>自动</button>
-        <button type="button" data-mode="lyrics" aria-pressed="false" disabled>歌词</button>
-        <button type="button" data-mode="clock" aria-pressed="false" disabled>时钟</button>
-        <button type="button" data-mode="photo" aria-pressed="false" disabled>相框</button>
-      </div>
-      <div class="actions">
-        <label for="idle">自动模式的待机画面</label>
-        <select id="idle" disabled>
-          <option value="clock">时钟</option>
-          <option value="photo">相框</option>
-          <option value="hardware">硬件监控</option>
-        </select>
-        <label class="file-picker">
-          <span>选择相框图片</span>
-          <input id="photo-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled>
-        </label>
+      <div class="display-controls">
+        <div class="modes" role="group" aria-label="手机显示模式">
+          <button type="button" data-mode="auto" aria-pressed="true" disabled>自动</button>
+          <button type="button" data-mode="lyrics" aria-pressed="false" disabled>歌词</button>
+          <button type="button" data-mode="clock" aria-pressed="false" disabled>时钟</button>
+          <button type="button" data-mode="photo" aria-pressed="false" disabled>相框</button>
+        </div>
+        <div class="actions">
+          <label for="idle">自动模式待机画面</label>
+          <select id="idle" disabled>
+            <option value="clock">时钟</option>
+            <option value="photo">相框</option>
+            <option value="hardware">硬件监控</option>
+          </select>
+          <label class="file-picker">
+            <span>选择相框图片</span>
+            <input id="photo-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled>
+          </label>
+        </div>
       </div>
     </section>
-    <section aria-labelledby="pages-heading">
+    <section id="pages" aria-labelledby="pages-heading">
       <h2 id="pages-heading">界面与小组件</h2>
-      <p class="detail">手机左右滑动时按这里的顺序切换。保存后同步到手机。</p>
+      <p class="detail">手机按这里的顺序左右切页</p>
       <fieldset id="page-editor" disabled>
-        <div class="actions">
+        <div class="actions page-toolbar">
           <button id="page-add" type="button">新建界面</button>
           <select id="page-preset" aria-label="页面预设"></select>
           <button id="page-add-preset" type="button" disabled>添加预设页面</button>
           <span id="page-count" class="detail"></span>
+          <button id="pages-save" class="primary" type="button">保存界面</button>
         </div>
-        <ol id="page-order"></ol>
-        <div id="page-detail"></div>
+        <div class="page-workspace">
+          <div class="page-sequence">
+            <h3>页面顺序</h3>
+            <ol id="page-order"></ol>
+          </div>
+          <div id="page-detail"></div>
+        </div>
         <details id="widget-import">
           <summary>导入 AI 自定义组件</summary>
           <div class="actions">
@@ -77,7 +97,6 @@
         </details>
         <label class="shortcut-permission"><input type="checkbox" id="page-shortcuts"> 允许通过 USB 发送已配置的 Windows 快捷键</label>
         <div class="actions page-save">
-          <button id="pages-save" type="button">保存界面</button>
           <button id="pages-reload" type="button">读取已保存设置</button>
         </div>
       </fieldset>
@@ -108,7 +127,7 @@
         <p id="source-status" class="detail" role="status"></p>
       </details>
     </section>
-    <section aria-labelledby="appearance-heading">
+    <section id="appearance" aria-labelledby="appearance-heading">
       <h2 id="appearance-heading">歌词外观</h2>
       <div class="appearance-editor">
         <div>
@@ -158,10 +177,15 @@
       </fieldset>
       <p id="appearance-status" class="detail" role="status"></p>
     </section>
-    <section aria-labelledby="music-heading">
+    <section id="music" aria-labelledby="music-heading">
       <h2 id="music-heading">Apple Music</h2>
-      <p class="song" id="song">等待 Apple Music 播放</p>
-      <p class="detail" id="timeline"></p>
+      <div class="playback-track">
+        <img id="control-cover" alt="" hidden>
+        <div>
+          <p class="song" id="song">等待 Apple Music 播放</p>
+          <p class="detail" id="timeline"></p>
+        </div>
+      </div>
       <div class="actions" role="group" aria-label="播放控制">
         <button type="button" data-playback="previous" disabled>上一首</button>
         <button type="button" data-playback="toggle" disabled>播放</button>
@@ -180,7 +204,6 @@
       </div>
     </section>
     <p id="message" role="status"></p>
-    <footer>手机浏览器地址 <code>http://127.0.0.1:8765/</code></footer>
   </main>
 </body>
 </html>

@@ -29,8 +29,8 @@
         'gpu.power': 41, 'gpu.clock': 2520, 'gpu.fan': 34, 'ram.used': 23, 'ram.total': 64, 'ram.usage': 36 },
       gpuName: 'GPU 演示'
     },
-    data: { 'weather.temperature': 23, 'weather.feels': 25, 'weather.code': 2, 'weather.wind': 12,
-      'weather.humidity': 64, 'weather.day': true, 'weather.place': '示例地点', 'weather.configured': true }
+    data: { 'weather.temperature': 16, 'weather.feels': 14, 'weather.code': 0, 'weather.wind': 3,
+      'weather.humidity': 54, 'weather.day': true, 'weather.place': '示例地点', 'weather.configured': true }
   };
   const sizes = [['small', '小'], ['medium', '中'], ['large', '大']];
   const weatherShapes = [['card', '卡片'], ['round', '圆形'], ['capsule', '胶囊'], ['square', '方形']];
@@ -49,6 +49,7 @@
   let pixelTools;
   let resetLayout;
   let previewClocks = [];
+  let previewMusic = [];
   let replacing;
   let bundled = [];
   let pageLimit;
@@ -56,7 +57,39 @@
   const currentPage = () => draft.pages.find(page => page.id === selected);
   const backdrop = node('div', 'page-backdrop');
   const updateBackdrop = createPageBackdrop(backdrop);
-  document.addEventListener('playback-cover', () => { if (draft) updateBackdrop(currentPage(), state); });
+  const previewTime = new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const previewDate = new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
+  document.addEventListener('playback-cover', updateScene);
+
+  function updateScene() {
+    if (!draft || !preview) return;
+    for (const tile of previewMusic) tile.update({ state: state ?? previewData.state });
+    const page = currentPage();
+    const scene = preview.querySelector('.layout-preview-scene');
+    const appearance = state?.lyricAppearance;
+    if (page.kind === 'lyrics' && appearance) {
+      preview.style.setProperty('--preview-background', appearance.backgroundColor);
+      scene.style.color = appearance.textColor;
+      updateBackdrop({ color: appearance.backgroundColor, backgroundMode: appearance.backgroundMode }, state);
+    } else updateBackdrop(page, state);
+    if (page.kind === 'lyrics') {
+      const position = (state?.positionMs ?? 0) + (state?.lyricOffsetMs ?? 0);
+      scene.querySelector('strong').textContent = state?.lines?.findLast(line => line.atMs <= position)?.text
+        || state?.song?.title || '等待播放';
+    } else if (page.kind === 'clock') {
+      const now = new Date();
+      scene.querySelector('time').textContent = previewTime.format(now);
+      scene.querySelector('span').textContent = previewDate.format(now);
+    }
+    const image = scene.querySelector('img');
+    if (image) {
+      const url = page.kind === 'photo' ? state?.wallpaper : state?.cover;
+      if (url && image.getAttribute('src') !== url) image.src = url;
+      else if (!url) image.removeAttribute('src');
+      image.alt = '';
+      image.hidden = !url;
+    }
+  }
   const dirty = () => JSON.stringify(draft) !== original;
 
   function button(text, handler, title = text) {
@@ -130,21 +163,22 @@
   function refreshPreview() {
     const page = currentPage();
     preview.style.setProperty('--preview-background', page.color);
-    preview.hidden = page.widgets.length === 0 && page.backgroundMode !== 'album';
     layoutTools.hidden = page.widgets.length === 0;
     resetLayout.disabled = !widgetPlacement.isFree(page);
     previewClocks = [];
+    previewMusic = [];
     widgetLayoutEditor.render(preview, page, widget => {
       const tile = widget.manifest?.version === 2 ? widgetV2.make(widget) : make(widget);
       tile.update(previewData);
       if (widget.type === 'clock') previewClocks.push(tile);
+      if (widget.type === 'music') previewMusic.push(tile);
       return tile.element;
     }, () => {
       resetLayout.disabled = false;
       save.disabled = !dirty();
     }, pixelTools);
     preview.prepend(backdrop);
-    updateBackdrop(page, state);
+    updateScene();
     document.dispatchEvent(new CustomEvent('page-flow-change', {
       detail: draft.pages.some(item => item.kind !== 'lyrics' && item.backgroundMode === 'album')
     }));
@@ -229,8 +263,10 @@
       refreshPreview();
       save.disabled = !dirty();
     });
-    layoutTools.append(node('span', 'detail', '拖动移动 · 拉边框缩放 · 按 Alt 暂停吸附'), resetLayout);
-    detail.replaceChildren(props, toolbar, layoutTools, preview, pixelTools,
+    const gestures = node('span', 'detail', '拖动移动 · 拉边框缩放 · 按 ');
+    gestures.append(node('kbd', '', 'Alt'), ' 暂停吸附');
+    layoutTools.append(gestures, resetLayout);
+    detail.replaceChildren(node('h3', '', '横屏预览'), preview, layoutTools, pixelTools, props, toolbar,
       ...page.widgets.map(widget => editWidget(page, widget)));
     if (page.widgets.length === 1) detail.querySelector('.page-widget-editor').open = true;
     refreshPreview();
@@ -241,7 +277,12 @@
 
   function editWidget(page, widget) {
     const box = node('details', 'page-widget-editor');
-    const description = () => [widget.name.trim(), kinds[widget.type]].filter(Boolean).join(' · ');
+    const description = () => {
+      const type = kinds[widget.type];
+      const name = widget.name.trim() || type;
+      const detail = widget.type === 'shortcut' ? widget.keys : type;
+      return detail && detail !== name ? [name, detail].join(' · ') : name;
+    };
     const summary = node('summary', '', description());
     summary.addEventListener('click', () => widgetLayoutEditor.select(preview, widget.id));
     const fields = node('div', 'widget-fields');
@@ -266,11 +307,13 @@
         if (value) {
           shortcut.value = value;
           widget.keys = value;
+          summary.textContent = description();
         }
       }, { entries: [['', '请选择'], ...screenshotKeys] });
       const shortcut = field(fields, '快捷键', widget.keys, value => {
         widget.keys = value;
         updatePreset();
+        summary.textContent = description();
       }, { max: 64, placeholder: '例如 Win+Shift+S' });
       function updatePreset() {
         preset.value = screenshotKeys.find(([keys]) => keys.toLowerCase() === widget.keys.trim().toLowerCase())?.[0] ?? '';

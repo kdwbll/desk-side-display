@@ -1,17 +1,6 @@
-html[data-demo="control"] {
-  color-scheme: dark;
-  --canvas: #1c1e21;
-  --surface: #232529;
-  --text: #f1e9e2;
-  --quiet: #c2b9b2;
-  --line: #484143;
-  --selected: #e8bb93;
-  --selected-text: #271b16;
-}
-html[data-demo="control"] main { width: 100%; padding: 12px 14px; }
-html[data-demo="control"] :is(main > header, main > footer, main > section[hidden]) { display: none; }
-html[data-demo="control"] section { margin: 0; border: 0; padding: 0; background: transparent; border-radius: 0; }
-html[data-demo="control"] #page-order { max-width: 700px; }
-html[data-demo="control"] .widget-layout-preview { max-width: 700px; }
+html[data-demo="control"] { color-scheme: dark; }
+html[data-demo="control"] main { display: block; width: 100%; padding: 16px; }
+html[data-demo="control"] :is(.console-header, .console-rail) { display: none; }
+html[data-demo="control"] main > section { margin: 0; border: 0; padding: 0; background: transparent; border-radius: 0; }
 html[data-demo="control"] #widget-sources > p { max-width: 74ch; }
 html[data-demo="display"] #shortcut-feedback { display: none; }

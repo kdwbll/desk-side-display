@@ -14,6 +14,7 @@
 - PhoneBox 用于参考 USB 连接与手机端面板的设计。上游许可证为 MIT。 [PhoneBox 许可证](https://github.com/ersinkoc/phonebox/blob/main/LICENSE)
 - BetterLyrics 用于参考 Windows 媒体会话与歌词匹配的设计。上游许可证为 GPL-3.0。 [BetterLyrics 许可证](https://github.com/jayfunc/BetterLyrics/blob/dev/LICENSE)
 - Studio Waldbach 的 Liquid Glass CSS 用于参考分层模糊和饱和度。Nordify 的 CSS Liquid Glass 用于参考边缘高光与透明中心。两个项目均采用 MIT 许可。 [Liquid Glass CSS](https://github.com/waldbach/liquid-glass-css) · [CSS Liquid Glass](https://github.com/nordify/css-liquid-glass)
+- Windows 控制面板的设计审查参考 Damir Sokolovsky（@heydamir）的 unslop 流程，原技能采用 CC BY 4.0。 [unslop](https://heydamir.design/unslop) · [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 
 本仓库对上述设计思路采用独立实现。项目的 MIT 许可适用于本仓库的原创代码与演示素材。第三方代码、工具、商标、歌曲、歌词及专辑封面的权利归各自权利人。运行时获取歌词涉及 [LRCLIB](https://lrclib.net/docs)、[AMLL](https://amll.dev/reference/http-api/native)和网易云音乐，使用歌词内容时应遵守相应来源的条款并尊重原权利。
 
