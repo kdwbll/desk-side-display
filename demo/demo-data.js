@@ -39,21 +39,38 @@ export const metrics = {
   gpuName: '示例 GPU'
 };
 
+export const defaultAppearance = {
+  textColor: '#ffffff', contextOpacity: 16, blur: 0, backgroundColor: '#0a0a0b',
+  backgroundMode: 'album', flowSpeed: 1.5, flowBlend: 100
+};
+
+export function appearancePresets() {
+  const fixed = { ...defaultAppearance, textColor: '#f8f1e8', backgroundMode: 'fixed', flowSpeed: 1, flowBlend: 0 };
+  return [
+    { ...fixed, contextOpacity: 30, blur: 1, backgroundColor: '#171923' },
+    { ...fixed, contextOpacity: 55, blur: 1.4, backgroundColor: '#000000' },
+    { ...fixed, contextOpacity: 59, blur: 2, backgroundColor: '#121226' },
+    { ...defaultAppearance, backgroundColor: '#121226', flowSpeed: 1, flowBlend: 0 },
+    { ...defaultAppearance, flowSpeed: 1 }
+  ].map((appearance, index) => ({ id: crypto.randomUUID(), name: String(index + 1), appearance }));
+}
+
 export async function initialLayout() {
-  const weather = await fetch(new URL('./shared/examples/weather-widget.json', import.meta.url)).then(response => response.json());
+  const example = name => fetch(new URL('./shared/examples/' + name + '-widget.json', import.meta.url))
+    .then(response => response.json());
+  const [weather, clipboard] = await Promise.all([example('weather'), example('clipboard')]);
+  clipboard.layout.firstPresent = true;
   const item = (type, name, x, y, width, height, extra = {}) => ({
-    id: crypto.randomUUID(), type, name, size: 'medium', color: '#9fddce',
+    id: crypto.randomUUID(), type, name, size: 'small', color: '#82d9ce',
     placement: { x, y, width, height }, ...extra
   });
   const cards = [
-    item('custom', '天气', 40, 140, 300, 348, { manifest: weather }),
-    item('image', '', 367, 140, 300, 348, { mediaId: 'mountain', fit: 'cover' }),
-    item('emoji', '', 40, 520, 133, 147, { text: '🌿' }),
-    item('clock', '', 193, 520, 147, 147),
-    item('gif', '', 367, 520, 300, 147, { mediaId: 'wave', fit: 'cover' }),
-    item('shortcut', '', 40, 698, 300, 209, { keys: 'Win+Shift+S' }),
-    item('text', '便签', 367, 698, 300, 209, { text: '更新桌面相框' }),
-    item('music', '', 693, 140, 258, 767)
+    item('shortcut', '键盘快捷键', 35, 90, 191, 202, { keys: 'Win+Shift+S' }),
+    item('shortcut', '键盘快捷键', 242, 90, 191, 202, { keys: 'Ctrl+C' }),
+    item('music', '正在播放', 35, 359, 398, 568),
+    item('custom', '天气', 471, 90, 476, 368, { color: weather.color, manifest: { ...weather, size: 'small' } }),
+    item('text', '便签', 682, 526, 265, 401, { text: '写点什么' }),
+    item('gif', '', 471, 526, 181, 401, { mediaId: 'wave', fit: 'cover' })
   ];
   const instruments = [
     ['CPU', 'cpu.usage', '#39dbc6'], ['GPU', 'gpu.usage', '#afe64f'],
@@ -63,10 +80,14 @@ export async function initialLayout() {
     revision: 0, shortcutsEnabled: true, widgetLibrary: [],
     pages: [
       { id: 'lyrics', kind: 'lyrics', name: '歌词', color: '#171923', widgets: [] },
-      { id: crypto.randomUUID().replaceAll('-', ''), kind: 'custom', name: '桌面日常', color: '#181924', widgets: cards },
-      { id: 'clock', kind: 'clock', name: '时钟', color: '#171923', widgets: [] },
-      { id: 'photo', kind: 'photo', name: '相框', color: '#171923', widgets: [] },
-      { id: 'hardware', kind: 'hardware', name: '硬件监控', color: '#151621', widgets: instruments }
+      { id: 'photo', kind: 'photo', name: '相框', color: '#171923', backgroundMode: 'album', widgets: [] },
+      { id: 'clock', kind: 'clock', name: '时钟', color: '#030303', backgroundMode: 'album', widgets: [] },
+      { id: 'hardware', kind: 'hardware', name: '', color: '#000000', backgroundMode: 'album', widgets: instruments },
+      { id: crypto.randomUUID().replaceAll('-', ''), kind: 'custom', name: '', color: '#151621',
+        backgroundMode: 'album', widgets: cards },
+      { id: crypto.randomUUID().replaceAll('-', ''), kind: 'custom', name: '', color: '#151621',
+        backgroundMode: 'album', widgets: [{ id: crypto.randomUUID(), type: 'custom', name: clipboard.name,
+          size: clipboard.size, color: clipboard.color, manifest: clipboard }] }
     ]
   };
 }

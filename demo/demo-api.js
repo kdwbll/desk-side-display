@@ -1,4 +1,4 @@
-import { initialLayout, metrics, samples, tracks } from './demo-data.js';
+import { appearancePresets, defaultAppearance, initialLayout, metrics, samples, tracks } from './demo-data.js';
 
 const durationMs = 31600;
 const defaultOffset = 1300;
@@ -57,9 +57,9 @@ function saveImage(form, types) {
 export async function createDemo(notify) {
   let layout = await initialLayout();
   const media = new Map(Object.entries(samples));
-  let preferences = { mode: 'auto', idle: 'clock' };
-  let appearance = { textColor: '#ffe7cd', backgroundColor: '#241f2c', backgroundMode: 'album', flowSpeed: 1, flowBlend: 0, contextOpacity: 28, blur: 0.8 };
-  let presets = [{ id: crypto.randomUUID(), name: '暮色', appearance }];
+  let preferences = { mode: 'photo', idle: 'clock' };
+  let appearance = { ...defaultAppearance };
+  let presets = appearancePresets();
   let sources = { actions: true, clipboard: true, notifications: false, window: false, interfaces: [], apps: {} };
   let sourcesRevision = 0;
   let displayRevision = 0;
@@ -124,8 +124,8 @@ export async function createDemo(notify) {
 
   function widgetData() {
     return {
-      'weather.temperature': 23, 'weather.feels': 25, 'weather.code': 2, 'weather.wind': 12,
-      'weather.humidity': 64, 'weather.day': true, 'weather.place': sources.weatherPlace || '示例地点',
+      'weather.temperature': 16, 'weather.feels': 14, 'weather.code': 0, 'weather.wind': 3,
+      'weather.humidity': 54, 'weather.day': true, 'weather.place': sources.weatherPlace || '示例地点',
       'weather.configured': true, 'network.connected': true, 'volume.level': 44,
       'clipboard.sequence': sources.clipboard ? 1 : null,
       'clipboard.text': sources.clipboard ? '欢迎体验桌面副屏' : null,
