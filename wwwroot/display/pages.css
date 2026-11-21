@@ -31,22 +31,6 @@ main:has(#page-backdrop > .album-flow:not([hidden])) #wallpaper { padding: 2.5cq
 }
 #page-widgets .widget-music-cover { width: min(80%, 4.2em); }
 #page-widgets .widget-gauge { width: min(100%, 3.5em); }
-.page-footer {
-  position: absolute;
-  z-index: 1;
-  inset-inline: 0;
-  inset-block-end: 0;
-  display: grid;
-  place-items: center;
-  height: calc(30px + env(safe-area-inset-bottom, 0px));
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  color: #c2c0cf;
-  background: #191a24e8;
-  pointer-events: none;
-}
-#page-indicator { display: flex; gap: 6px; align-items: center; }
-.page-dot { width: 5px; height: 5px; border-radius: 10px; background: #777486; }
-.page-dot.active { width: 17px; background: #ddd4fb; }
 #shortcut-feedback {
   position: absolute;
   z-index: 2;

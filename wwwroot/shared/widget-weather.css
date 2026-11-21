@@ -9,13 +9,13 @@
   --sky-bottom: #1c344c;
   --cloud: #c8e3ff;
   --orb: #ffe687;
-  --glass-face: radial-gradient(ellipse at 85% -12%, #e3f4ff33, transparent 67%),
-    linear-gradient(130deg, color-mix(in srgb, var(--sky-top) 73%, #172837ad),
-      color-mix(in srgb, var(--sky-bottom) 72%, #0d182a64));
+  --glass-face: radial-gradient(ellipse at 85% -12%, #e3f4ff29, transparent 67%),
+    linear-gradient(130deg, color-mix(in srgb, var(--sky-top) 70%, transparent),
+      color-mix(in srgb, var(--sky-bottom) 66%, transparent));
   position: relative;
   isolation: isolate;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, .9fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   align-items: center;
   min-height: 7em;
   overflow: hidden;
@@ -56,8 +56,9 @@
   display: grid;
   gap: .14em;
   min-width: 0;
-  padding: .45em .1em .45em .85em;
+  padding: .45em .1em .45em 1.2em;
 }
+.weather-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: .12em .5em; min-width: 0; }
 .weather-place { color: var(--card-title); font-size: 1em; font-weight: 650; overflow-wrap: anywhere; }
 .weather-condition { color: var(--card-secondary); font-size: .74em; font-weight: 450; overflow-wrap: anywhere; }
 .weather-temperature {
@@ -164,13 +165,14 @@
 .widget-weather:is([data-shape="round"], [data-shape="square"]) .weather-report {
   grid-row: 2; justify-items: center; padding: 0 8% .2em; font-size: min(1em, 7.5cqi);
 }
+.widget-weather:is([data-shape="round"], [data-shape="square"]) .weather-heading { justify-content: center; }
 .widget-weather[data-shape="round"] .weather-stats { display: none; }
 .widget-weather[data-shape="square"] .weather-stats { justify-content: center; }
-.widget-weather[data-shape="capsule"] .weather-report { padding-left: 1.24em; }
+.widget-weather[data-shape="capsule"] .weather-report { padding-inline-start: 1.5em; }
 @container (max-width: 220px) {
-  .weather-report { padding-left: .55em; }
+  .weather-report { padding-inline-start: .75em; }
   .weather-stats { gap: .22em .35em; }
-  .widget-weather[data-shape="capsule"] .weather-report { padding-left: .83em; }
+  .widget-weather[data-shape="capsule"] .weather-report { padding-inline-start: 1em; }
 }
 @keyframes weather-breathe { 50% { transform: scale(1.07); opacity: .88; } }
 @keyframes weather-drift { to { transform: translate(.38em, .14em); } }

@@ -57,13 +57,12 @@ previous.addEventListener('click', () => slide('ArrowLeft'));
 next.addEventListener('click', () => slide('ArrowRight'));
 
 phone.addEventListener('load', () => {
-  const indicator = phone.contentDocument.getElementById('page-indicator');
-  if (!indicator) return;
+  const screen = phone.contentDocument.querySelector('main');
+  if (!screen) return;
   const status = () => {
-    const label = indicator.getAttribute('aria-label');
-    if (label) currentPage.textContent = label.replaceAll('，', ' · ');
+    if (screen.dataset.pageLabel) currentPage.textContent = screen.dataset.pageLabel;
   };
-  new MutationObserver(status).observe(indicator, { attributes: true, attributeFilter: ['aria-label'] });
+  new MutationObserver(status).observe(screen, { attributeFilter: ['data-page-label'] });
   status();
   previous.disabled = next.disabled = false;
 });
