@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using Windows.Media.Control;
@@ -30,7 +31,7 @@ sealed record MusicState(
     bool Playing = false,
     bool Paused = false,
     DateTimeOffset LastPlaying = default,
-    DateTimeOffset SampledAt = default,
+    long SampledAt = 0,
     double? PositionMs = null,
     double? DurationMs = null,
     double Rate = 1,
@@ -92,6 +93,7 @@ sealed class AppleMusic(ILogger<AppleMusic> logger) : BackgroundService
         var media = await session.TryGetMediaPropertiesAsync();
         var playback = session.GetPlaybackInfo();
         var timeline = session.GetTimelineProperties();
+        var sampledAt = Stopwatch.GetTimestamp();
         var now = DateTimeOffset.UtcNow;
         var playing = playback.PlaybackStatus == PlaybackStatus.Playing;
         var paused = playback.PlaybackStatus == PlaybackStatus.Paused;
@@ -122,7 +124,7 @@ sealed class AppleMusic(ILogger<AppleMusic> logger) : BackgroundService
             Playing: playing,
             Paused: paused,
             LastPlaying: playing ? now : sameSong ? previous.LastPlaying : default,
-            SampledAt: now,
+            SampledAt: sampledAt,
             PositionMs: validTimeline ? Math.Min(position, duration > 0 ? duration : double.MaxValue) : null,
             DurationMs: duration > 0 && validTimeline ? duration : null,
             Rate: rate,
