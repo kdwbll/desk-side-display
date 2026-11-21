@@ -16,11 +16,17 @@ sealed record WidgetNotification(string Title, string? Body = null, string? App 
 sealed class WidgetSources : IDisposable
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    private const int WeatherRefreshMs = 300_000;
+    private const int WeatherRetryMs = 30_000;
+    private static readonly TimeSpan WeatherCacheAge = TimeSpan.FromMinutes(30);
     private readonly object gate = new();
     private readonly string path;
     private readonly ClipboardHistory history;
-    private readonly Dictionary<Uri, CachedDocument> documents = [];
+    private readonly Dictionary<(Uri Uri, bool Weather), CachedDocument> documents = [];
     private readonly HttpClient http = new(new SocketsHttpHandler { AllowAutoRedirect = false, UseCookies = false, UseProxy = false })
+        { Timeout = Timeout.InfiniteTimeSpan };
+    // Only the fixed weather endpoint uses the Windows system proxy.
+    private readonly HttpClient weatherHttp = new(new SocketsHttpHandler { AllowAutoRedirect = false, UseCookies = false })
         { Timeout = Timeout.InfiniteTimeSpan };
     private WidgetSourceConfig config = new();
     private WidgetNotification? notification;
@@ -122,7 +128,7 @@ sealed class WidgetSources : IDisposable
         {
             var uri = new Uri(FormattableString.Invariant(
                 $"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m,apparent_temperature,is_day"));
-            var data = await Document(uri, 300000, token);
+            var (data, stale) = await Document(uri, WeatherRefreshMs, token, weather: true);
             values["weather.temperature"] = Extract(data, ["current", "temperature_2m"]);
             values["weather.code"] = Extract(data, ["current", "weather_code"]);
             values["weather.wind"] = Extract(data, ["current", "wind_speed_10m"]);
@@ -130,6 +136,7 @@ sealed class WidgetSources : IDisposable
             values["weather.feels"] = Extract(data, ["current", "apparent_temperature"]);
             values["weather.day"] = Extract(data, ["current", "is_day"]) is double day ? day == 1 : null;
             values["weather.place"] = string.IsNullOrWhiteSpace(options.WeatherPlace) ? null : options.WeatherPlace;
+            values["weather.stale"] = stale;
         }
         if (groups.Contains("api"))
         {
@@ -137,7 +144,7 @@ sealed class WidgetSources : IDisposable
             {
                 var prefix = $"api.{endpoint.Id}.";
                 var bindings = requested.Where(reference => reference.StartsWith(prefix, StringComparison.Ordinal)).ToArray();
-                var data = bindings.Length == 0 ? default : await Document(new Uri(endpoint.Url), endpoint.RefreshMs, token);
+                var data = bindings.Length == 0 ? default : (await Document(new Uri(endpoint.Url), endpoint.RefreshMs, token)).Content;
                 return (prefix, bindings, data);
             });
             foreach (var (prefix, bindings, data) in await Task.WhenAll(jobs))
@@ -219,45 +226,62 @@ sealed class WidgetSources : IDisposable
     private static bool Alias(string? name) => name is { Length: >= 1 and <= 32 } &&
         name.All(ch => ch is >= 'a' and <= 'z' or >= '0' and <= '9' or '-' or '_') && char.IsAsciiLetterOrDigit(name[0]);
 
-    private async Task<JsonElement> Document(Uri uri, int interval, CancellationToken token)
+    private async Task<(JsonElement Content, bool Stale)> Document(Uri uri, int interval, CancellationToken token,
+        bool weather = false)
     {
         CachedDocument entry;
         lock (gate)
         {
-            if (!documents.TryGetValue(uri, out entry!)) documents[uri] = entry = new CachedDocument();
+            var key = (uri, weather);
+            if (!documents.TryGetValue(key, out entry!)) documents[key] = entry = new CachedDocument();
         }
         await entry.Gate.WaitAsync(token);
         try
         {
-            if (entry.SampledAt != 0 && Stopwatch.GetElapsedTime(entry.SampledAt).TotalMilliseconds < interval)
-                return entry.Content;
-            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
-            deadline.CancelAfter(TimeSpan.FromSeconds(3));
-            try
+            var refresh = weather && entry.Failed ? WeatherRetryMs : interval;
+            if (entry.SampledAt == 0 || Stopwatch.GetElapsedTime(entry.SampledAt).TotalMilliseconds >= refresh)
             {
-                using var response = await http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, deadline.Token);
-                response.EnsureSuccessStatusCode();
-                if (response.Content.Headers.ContentLength > 131072) return entry.Content = default;
-                await using var content = await response.Content.ReadAsStreamAsync(deadline.Token);
-                using var bytes = new MemoryStream();
-                var buffer = new byte[4096];
-                int count;
-                while ((count = await content.ReadAsync(buffer, deadline.Token)) != 0)
-                {
-                    if (bytes.Length + count > 131072) return entry.Content = default;
-                    bytes.Write(buffer, 0, count);
-                }
-                using var document = JsonDocument.Parse(bytes.ToArray(), new JsonDocumentOptions { MaxDepth = 16 });
-                return entry.Content = document.RootElement.Clone();
+                var data = await FetchDocument(weather ? weatherHttp : http, uri, weather ? 12 : 3, token);
+                entry.Failed = data.ValueKind == JsonValueKind.Undefined || (weather &&
+                    (Extract(data, ["current", "temperature_2m"]) is not double ||
+                     Extract(data, ["current", "weather_code"]) is not double));
+                entry.SampledAt = Stopwatch.GetTimestamp();
+                if (!entry.Failed || !weather) entry.Content = data;
+                if (!entry.Failed) entry.SucceededAt = entry.SampledAt;
             }
-            catch (Exception error) when (error is HttpRequestException or JsonException or IOException
-                or OperationCanceledException)
-            {
-                return entry.Content = default;
-            }
-            finally { entry.SampledAt = Stopwatch.GetTimestamp(); }
+            if (!weather || !entry.Failed) return (entry.Content, false);
+            return entry.SucceededAt != 0 && Stopwatch.GetElapsedTime(entry.SucceededAt) < WeatherCacheAge
+                ? (entry.Content, true) : (default, false);
         }
         finally { entry.Gate.Release(); }
+    }
+
+    private static async Task<JsonElement> FetchDocument(HttpClient client, Uri uri, int timeoutSeconds, CancellationToken token)
+    {
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
+        deadline.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
+        try
+        {
+            using var response = await client.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, deadline.Token);
+            response.EnsureSuccessStatusCode();
+            if (response.Content.Headers.ContentLength > 131072) return default;
+            await using var content = await response.Content.ReadAsStreamAsync(deadline.Token);
+            using var bytes = new MemoryStream();
+            var buffer = new byte[4096];
+            int count;
+            while ((count = await content.ReadAsync(buffer, deadline.Token)) != 0)
+            {
+                if (bytes.Length + count > 131072) return default;
+                bytes.Write(buffer, 0, count);
+            }
+            using var document = JsonDocument.Parse(bytes.ToArray(), new JsonDocumentOptions { MaxDepth = 16 });
+            return document.RootElement.Clone();
+        }
+        catch (Exception error) when (error is HttpRequestException or JsonException or IOException or OperationCanceledException)
+        {
+            token.ThrowIfCancellationRequested();
+            return default;
+        }
     }
 
     private static object? Extract(JsonElement node, string[] segments)
@@ -280,12 +304,18 @@ sealed class WidgetSources : IDisposable
         };
     }
 
-    public void Dispose() => http.Dispose();
+    public void Dispose()
+    {
+        http.Dispose();
+        weatherHttp.Dispose();
+    }
 
     private sealed class CachedDocument
     {
         public SemaphoreSlim Gate { get; } = new(1, 1);
         public long SampledAt;
+        public long SucceededAt;
+        public bool Failed;
         public JsonElement Content;
     }
 }

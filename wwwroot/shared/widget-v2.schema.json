@@ -265,7 +265,8 @@
             "weather.feels",
             "weather.day",
             "weather.place",
-            "weather.configured"
+            "weather.configured",
+            "weather.stale"
           ]
         },
         {
@@ -573,7 +574,8 @@
     "weather.feels": "number",
     "weather.day": "boolean",
     "weather.place": "text",
-    "weather.configured": "boolean"
+    "weather.configured": "boolean",
+    "weather.stale": "boolean"
   },
   "x-permissions": {
     "clipboard": [
