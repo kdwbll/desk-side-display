@@ -214,7 +214,7 @@ function updateFills(position) {
   for (const fill of fills) {
     const percent = Math.round(100 * Math.min(1, Math.max(0, (position - fill.start) / (fill.end - fill.start))));
     if (percent === fill.percent) continue;
-    fill.span.style.setProperty('--fill', percent + '%');
+    fill.span.style.setProperty('--fill', percent / 100);
     fill.percent = percent;
   }
 }
