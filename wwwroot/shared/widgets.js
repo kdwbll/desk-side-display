@@ -94,7 +94,19 @@ window.deskWidgets = (() => {
         finally { tile.disabled = false; }
       });
     }
-    if (widget.type === 'clock') tile.classList.add('widget-clock');
+    let dial;
+    if (widget.type === 'clock') {
+      tile.classList.add('widget-clock');
+      dial = node('span', 'widget-clock-dial');
+      dial.setAttribute('aria-hidden', 'true');
+      tile.append(dial);
+    }
+    if (note || widget.type === 'date') {
+      if (!note) tile.classList.add('widget-date');
+      const paper = node('span', 'widget-paper-icon');
+      paper.setAttribute('aria-hidden', 'true');
+      tile.append(paper);
+    }
     tile.style.setProperty('--widget-accent', widget.color);
     const value = node('span', 'widget-value');
     const detail = node('span', 'widget-detail');
@@ -118,6 +130,11 @@ window.deskWidgets = (() => {
         case 'clock':
           main = timeFormat.format(now);
           sub = dateFormat.format(now);
+          if (value.textContent !== main) {
+            const minutes = now.getMinutes();
+            dial.style.setProperty('--hour-angle', (now.getHours() % 12 * 30 + minutes / 2) + 'deg');
+            dial.style.setProperty('--minute-angle', minutes * 6 + 'deg');
+          }
           break;
         case 'date':
           main = dateFormat.format(now);

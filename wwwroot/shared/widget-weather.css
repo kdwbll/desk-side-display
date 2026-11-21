@@ -2,6 +2,7 @@
   background: transparent;
   border: 0;
   padding: 0;
+  box-shadow: none;
 }
 .widget-weather {
   --sky-top: #2e597b;
@@ -17,7 +18,8 @@
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--widget-accent, #8ed9ff) 32%, transparent);
   border-radius: 1.05em;
-  background: radial-gradient(ellipse at 84% 10%, #ffffff25, transparent 58%),
+  box-shadow: var(--tile-depth);
+  background: radial-gradient(ellipse at 82% -10%, #ffffff4a, transparent 61%),
     linear-gradient(145deg, var(--sky-top), var(--sky-bottom));
   color: #f6fcff;
   text-align: start;
@@ -58,7 +60,7 @@
 .weather-temperature {
   font-size: clamp(1.35em, 13cqi, 3.2em);
   line-height: .95;
-  font-weight: 700;
+  font-weight: 570;
   letter-spacing: -.065em;
   font-variant-numeric: tabular-nums;
 }
@@ -87,7 +89,7 @@
   position: absolute;
   inset: 12% 20% 19% 11%;
   border-radius: 50%;
-  background: var(--orb);
+  background: radial-gradient(circle at 33% 23%, #fff9d8, var(--orb) 57%, #efb36c);
   box-shadow: 0 0 1.15em #ffda8d91;
   animation: weather-breathe 5s ease-in-out infinite;
 }
@@ -117,6 +119,7 @@
 }
 .weather-cloud::after { left: 53%; width: 32%; }
 .weather-cloud-back { top: 37%; left: 34%; opacity: .62; transform: scale(.82); animation-delay: -2.7s; }
+.weather-cloud:not(.weather-cloud-back) { filter: drop-shadow(0 .12em .12em #21354940); }
 .weather-particles { position: absolute; inset: 60% 9% 3% 19%; pointer-events: none; }
 .weather-particles i {
   position: absolute;
