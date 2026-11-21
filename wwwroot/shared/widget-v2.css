@@ -2,6 +2,9 @@
   --widget-surface: var(--dark-background, #2b2a38);
   --widget-ink: var(--dark-foreground, #f4f2fb);
   --widget-line: var(--dark-accent, var(--widget-accent));
+  --glass-face: radial-gradient(ellipse at 82% -18%, #e2efff2e, transparent 58%),
+    linear-gradient(150deg, color-mix(in srgb, var(--widget-surface) 79%, transparent),
+      color-mix(in srgb, var(--widget-surface) 90%, transparent));
   position: relative;
   padding: var(--padding, 10px);
   background: var(--widget-surface);
