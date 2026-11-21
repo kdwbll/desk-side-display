@@ -86,9 +86,10 @@
   align-items: start;
   gap: .7em;
   border: 1px solid #8885;
-  border-radius: .55em;
+  border-radius: .75em;
   padding: .43em .58em;
-  background: #8881;
+  background: linear-gradient(155deg, #8882, #8881);
+  box-shadow: inset 0 1px 0 #ffffff18;
   color: inherit;
   font: inherit;
   text-align: start;
@@ -111,11 +112,11 @@ button.widget-v2-history-entry:focus-visible { outline: 2px solid var(--widget-l
   min-height: 30px;
   width: 100%;
   border: 1px solid var(--widget-line);
-  border-radius: .46em;
+  border-radius: .7em;
   padding: .25em .5em;
   font: inherit;
   color: var(--widget-ink);
-  background: #8882;
+  background: linear-gradient(150deg, #8883, #8881);
 }
 .widget-v2-button:disabled { opacity: .58; }
 .widget-v2-button:focus-visible { outline: 2px solid var(--widget-line); outline-offset: 2px; }

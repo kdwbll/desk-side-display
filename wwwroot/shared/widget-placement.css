@@ -31,8 +31,14 @@
 .widget-placed > .widget-image-card { padding: 0; overflow: hidden; }
 .widget-placed .widget-emoji-value { font-size: min(34cqw, 57cqh, 4.6em); }
 .widget-placed .widget-clock .widget-value { font-size: min(23cqw, 46cqh, 3.4em); }
+.widget-placed .widget-clock-dial { width: min(27cqw, 28cqh, 2.4em); }
+.widget-placed .widget-paper-icon { width: min(25cqw, 28cqh, 2.5em); }
+/* Compact cards give the available height to their content. */
+@container (max-height: 46px) {
+  .widget-clock-dial, .widget-paper-icon { display: none; }
+}
 .widget-placed .widget-face { min-height: 0; }
-.widget-placed .widget-gauge { width: min(90cqw, 52cqh, 6.2em); }
+.widget-placed .widget-with-gauge .widget-gauge, .widget-placed .widget-gauge { width: min(90cqw, 52cqh, 6.2em); }
 .widget-placed .widget-v2-layout { min-width: 0; gap: min(var(--gap, 8px), 4cqh, 6cqw); }
 .widget-placed .widget-v2-image { max-height: min(60cqh, 7em); }
 .widget-placed .widget-v2-dial { width: min(90%, 56cqh, 5.4em); }
@@ -41,7 +47,7 @@
 .widget-placed .widget-keycaps { gap: min(.3em, 3cqh); }
 .widget-placed .widget-keycaps kbd { padding: min(.22em, 2cqh) min(.42em, 5cqw); }
 .widget-placed > .widget-music { font-size: clamp(4px, min(8.1cqw, 9.2cqh), 25px); }
-.widget-placed .widget-music-cover { width: min(90cqw, 44cqh, 7em); }
+.widget-placed .widget-music-cover { width: min(85cqw, 47cqh, 8.6em); }
 .widget-placed .widget-music-button { width: min(31%, 21cqh, 2.1em); }
 .widget-placed .widget-music-progress { min-height: 2px; }
 .widget-placed > .widget-weather-only { padding: 0; overflow: hidden; }
@@ -73,6 +79,29 @@
 }
 @container (max-aspect-ratio: 4/7) {
   .widget-placed .widget-keycaps { row-gap: .22em; }
+}
+@container (min-aspect-ratio: 1.8) {
+  .widget-placed > .widget-shortcut { font-size: clamp(5px, min(9cqw, 25cqh), 30px); }
+  .widget-placed > :is(.widget-note, .widget-clock, .widget-date) {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    justify-items: start;
+    column-gap: min(5cqw, .75em);
+    row-gap: .12em;
+    padding-inline: min(7cqw, 1.2em);
+    text-align: start;
+    font-size: clamp(5px, min(7.2cqw, 20cqh), 26px);
+  }
+  .widget-placed :is(.widget-clock-dial, .widget-paper-icon) {
+    display: block;
+    grid-column: 1;
+    grid-row: 1 / span 3;
+    width: min(23cqw, 55cqh, 3em);
+  }
+  .widget-placed :is(.widget-note, .widget-clock, .widget-date) > :is(.widget-face, .widget-label, .widget-detail) {
+    grid-column: 2;
+  }
+  .widget-placed .widget-clock .widget-value { font-size: min(16cqw, 36cqh, 2.8em); }
 }
 @container (min-aspect-ratio: 10/3) {
   .widget-placed > .widget-music {

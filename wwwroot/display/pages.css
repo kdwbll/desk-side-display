@@ -4,7 +4,7 @@
   flex-direction: column;
   gap: clamp(8px, 3cqh, 18px);
   padding: clamp(10px, 4cqh, 24px) clamp(14px, 4cqw, 50px);
-  background: radial-gradient(ellipse at 92% 9%, #b2a0ee20, transparent 68%), var(--dashboard-background);
+  background: var(--dashboard-light), var(--dashboard-background);
   font-size: clamp(11px, min(2.6cqw, 5.6cqh), 28px);
 }
 .dashboard h1, .dashboard p { margin: 0; }
