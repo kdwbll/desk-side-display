@@ -9,12 +9,9 @@
 .widget {
   --widget-accent: #82d9ce;
   --tile-tint: var(--widget-accent);
-  --tile-light: radial-gradient(ellipse at 4% -35%, #ffffff36, transparent 66%),
-    radial-gradient(ellipse at 105% 110%, color-mix(in srgb, var(--tile-tint) 16%, transparent), transparent 59%);
   --tile-depth: 0 .2em .65em #07091738;
-  --glass-rim-size: 2px;
-  --glass-rim-light: conic-gradient(from 12deg, #edf9ff0a, #edf9ff62 44deg, #edf9ff0c 104deg,
-    #94c6dd04 150deg, #c7e4f149 218deg, #b7d7e823 261deg, #edf9ff05 308deg, #edf9ff0a);
+  --glass-rim-light: conic-gradient(from 5deg, #fff0, #fff7 47deg, #fff1 83deg, #fff0 124deg,
+    #fff0 170deg, #fff5 224deg, #fff1 259deg, #fff0 310deg);
   position: relative;
   isolation: isolate;
   display: grid;
@@ -24,13 +21,10 @@
   min-width: 0;
   min-height: 0;
   padding: .58em .45em;
-  border: 1px solid rgb(232 240 255 / 11%);
+  border: 1px solid rgb(245 250 255 / 9%);
   border-radius: var(--card-radius);
-  background: #272c39;
-  background: var(--tile-light), linear-gradient(146deg,
-    color-mix(in srgb, var(--tile-tint) 24%, #1e2030ed),
-    color-mix(in srgb, var(--tile-tint) 5%, #101322f2) 78%);
-  box-shadow: var(--tile-depth), inset 0 1px 0 #f0faff12, inset 0 -1px 0 #bacce20e;
+  background: transparent;
+  box-shadow: 0 2px 6px #07091724;
   color: #f4f2fb;
   font: inherit;
   text-align: center;
@@ -74,7 +68,6 @@
   padding: 0;
   align-content: center;
   overflow: hidden;
-  border-color: color-mix(in srgb, var(--widget-accent) 30%, transparent);
 }
 .widget-card-image {
   position: absolute;
@@ -86,7 +79,7 @@
   position: absolute;
   inset: 0;
   z-index: 3;
-  padding: var(--glass-rim-size);
+  padding: 1px;
   border-radius: inherit;
   background: var(--glass-rim-light);
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
@@ -97,16 +90,18 @@
 /* The broad face and the narrow rim sample the live backdrop separately. */
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   @media not (prefers-reduced-transparency: reduce) {
-    .widget:not(.widget-v2, .widget-image-card, .widget-weather-only),
-    .widget-v2:not(.widget-weather-only, .high-contrast), .widget .widget-weather {
-      background: var(--glass-face, radial-gradient(ellipse at 84% -16%, #dcf4ff25, transparent 58%),
-        linear-gradient(148deg, color-mix(in srgb, var(--tile-tint) 19%, #18253662), #1016258c));
+    .widget:not(.widget-image-card, .widget-weather-only, .high-contrast) {
+      -webkit-backdrop-filter: blur(2px);
+      backdrop-filter: blur(2px);
+    }
+    .widget .widget-weather {
+      background: var(--glass-face);
       -webkit-backdrop-filter: blur(8px) saturate(145%) brightness(.88);
       backdrop-filter: blur(8px) saturate(145%) brightness(.88);
     }
     .widget:not(.widget-weather-only, .high-contrast)::after, .widget-weather::after {
-      -webkit-backdrop-filter: blur(2px) saturate(158%) brightness(1.10);
-      backdrop-filter: blur(2px) saturate(158%) brightness(1.10);
+      -webkit-backdrop-filter: blur(1px) brightness(1.16);
+      backdrop-filter: blur(1px) brightness(1.16);
     }
   }
 }
@@ -125,7 +120,6 @@
   overflow-wrap: anywhere;
 }
 .widget-clock .widget-value { color: #fafbff; white-space: nowrap; font-weight: 550; letter-spacing: -.045em; }
-.widget-clock { --tile-tint: color-mix(in srgb, #8ca8ff 55%, var(--widget-accent)); }
 .widget-clock-dial {
   position: relative;
   width: 1.95em;
@@ -176,7 +170,6 @@
   background: radial-gradient(circle, #88605e 26%, transparent 31%) 0 0 / 25% 50%;
   clip-path: none;
 }
-.widget-emoji { --tile-tint: color-mix(in srgb, #66c2a7 55%, var(--widget-accent)); }
 .widget-emoji-value { filter: drop-shadow(0 .06em .07em #0c222c6b); }
 .widget [hidden], .widget-grid[hidden] { display: none !important; }
 .widget-gauge {
@@ -227,7 +220,7 @@ button.widget:not(:disabled) { cursor: pointer; }
 button.widget:not(:disabled):active { border-color: var(--widget-accent); box-shadow: inset 0 .12em .5em #0004; }
 button.widget:focus-visible { outline: 2px solid white; outline-offset: -3px; }
 button.widget:disabled { opacity: .52; }
-.widget-shortcut { gap: .42em; --tile-tint: color-mix(in srgb, #a79df9 68%, var(--widget-accent)); }
+.widget-shortcut { gap: .42em; }
 .widget-keycaps {
   display: flex;
   flex-wrap: wrap;
@@ -261,7 +254,6 @@ button.widget:disabled { opacity: .52; }
   gap: .55em;
   min-block-size: min-content;
   padding: .7em clamp(.35em, 4%, .85em);
-  --tile-tint: color-mix(in srgb, #ba88bf 62%, var(--widget-accent));
 }
 .widget-music-cover {
   position: relative;
