@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <filter id="rim" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB">
-      <feTurbulence type="fractalNoise" baseFrequency=".015 .022" numOctaves="1" seed="5" result="surface"/>
-      <feDisplacementMap in="SourceGraphic" in2="surface" scale="6" xChannelSelector="R" yChannelSelector="G"/>
-    </filter>
-  </defs>
-</svg>
