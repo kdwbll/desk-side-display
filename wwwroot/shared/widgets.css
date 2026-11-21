@@ -1,5 +1,5 @@
 :root {
-  --card-radius: 12px;
+  --card-radius: 24px;
   --card-title: #e1e7ef;
   --card-secondary: #b2bdca;
   --dashboard-light:
@@ -12,6 +12,11 @@
   --tile-light: radial-gradient(ellipse at 4% -35%, #ffffff36, transparent 66%),
     radial-gradient(ellipse at 105% 110%, color-mix(in srgb, var(--tile-tint) 16%, transparent), transparent 59%);
   --tile-depth: 0 .2em .65em #07091738;
+  --glass-rim-size: 2px;
+  --glass-rim-light: conic-gradient(from 12deg, #edf9ff0a, #edf9ff62 44deg, #edf9ff0c 104deg,
+    #94c6dd04 150deg, #c7e4f149 218deg, #b7d7e823 261deg, #edf9ff05 308deg, #edf9ff0a);
+  position: relative;
+  isolation: isolate;
   display: grid;
   align-content: center;
   justify-items: center;
@@ -19,13 +24,13 @@
   min-width: 0;
   min-height: 0;
   padding: .58em .45em;
-  border: 1px solid rgb(232 240 255 / 17%);
+  border: 1px solid rgb(232 240 255 / 11%);
   border-radius: var(--card-radius);
   background: #272c39;
   background: var(--tile-light), linear-gradient(146deg,
     color-mix(in srgb, var(--tile-tint) 24%, #1e2030ed),
     color-mix(in srgb, var(--tile-tint) 5%, #101322f2) 78%);
-  box-shadow: var(--tile-depth);
+  box-shadow: var(--tile-depth), inset 0 1px 0 #f0faff12, inset 0 -1px 0 #bacce20e;
   color: #f4f2fb;
   font: inherit;
   text-align: center;
@@ -77,14 +82,31 @@
   width: 100%;
   height: 100%;
 }
-/* One rounded surface clips the backdrop. Light falls across the fill. */
+.widget:not(.widget-weather-only, .high-contrast)::after, .widget-weather::after {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  padding: var(--glass-rim-size);
+  border-radius: inherit;
+  background: var(--glass-rim-light);
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+  content: '';
+}
+
+/* The broad face and the narrow rim sample the live backdrop separately. */
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   @media not (prefers-reduced-transparency: reduce) {
-    .widget:not(.widget-v2, .widget-image-card) {
-      background: radial-gradient(ellipse at 10% -25%, color-mix(in srgb, var(--tile-tint) 28%, transparent), transparent 72%),
-        linear-gradient(155deg, #b8c9ee14, #11162760);
-      -webkit-backdrop-filter: blur(18px) saturate(135%) brightness(.68);
-      backdrop-filter: blur(18px) saturate(135%) brightness(.68);
+    .widget:not(.widget-v2, .widget-image-card, .widget-weather-only),
+    .widget-v2:not(.widget-weather-only, .high-contrast), .widget .widget-weather {
+      background: var(--glass-face, radial-gradient(ellipse at 84% -16%, #dcf4ff25, transparent 58%),
+        linear-gradient(148deg, color-mix(in srgb, var(--tile-tint) 19%, #18253662), #1016258c));
+      -webkit-backdrop-filter: blur(8px) saturate(145%) brightness(.88);
+      backdrop-filter: blur(8px) saturate(145%) brightness(.88);
+    }
+    .widget:not(.widget-weather-only, .high-contrast)::after, .widget-weather::after {
+      -webkit-backdrop-filter: blur(2px) saturate(158%) brightness(1.10);
+      backdrop-filter: blur(2px) saturate(158%) brightness(1.10);
     }
   }
 }
@@ -321,6 +343,7 @@ button.widget:disabled { opacity: .52; }
 }
 @media (forced-colors: active) {
   .widget { border-color: CanvasText; }
+  .widget::after, .widget-weather::after { display: none; }
   .widget-clock-dial, .widget-paper-icon { display: none; }
   .widget-music-icon { forced-color-adjust: none; background: ButtonText; }
 }

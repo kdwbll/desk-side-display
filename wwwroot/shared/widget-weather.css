@@ -9,6 +9,9 @@
   --sky-bottom: #1c344c;
   --cloud: #c8e3ff;
   --orb: #ffe687;
+  --glass-face: radial-gradient(ellipse at 85% -12%, #e3f4ff33, transparent 67%),
+    linear-gradient(130deg, color-mix(in srgb, var(--sky-top) 73%, #172837ad),
+      color-mix(in srgb, var(--sky-bottom) 72%, #0d182a64));
   position: relative;
   isolation: isolate;
   display: grid;
@@ -18,7 +21,7 @@
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--widget-accent, #8ed9ff) 32%, transparent);
   border-radius: var(--card-radius);
-  box-shadow: var(--tile-depth);
+  box-shadow: var(--tile-depth), inset 0 1px 0 #f0faff30, inset 0 -1px 0 #aac7eb24;
   background: linear-gradient(110deg, #101d2cd6, transparent 95%),
     radial-gradient(ellipse at 82% -10%, #ffffff24, transparent 61%),
     linear-gradient(145deg, var(--sky-top), var(--sky-bottom));
