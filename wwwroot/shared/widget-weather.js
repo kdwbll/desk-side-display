@@ -2,6 +2,11 @@
 
 window.deskWeather = (() => {
   const { node } = deskWidgets;
+  const defaultTransparency = 30;
+
+  function setTransparency(card, transparency) {
+    card.style.setProperty('--weather-opacity', (100 - transparency) / 100);
+  }
 
   function condition(code, day) {
     if (!Number.isFinite(code)) return ['idle', ''];
@@ -15,9 +20,10 @@ window.deskWeather = (() => {
     return ['cloud', '多云'];
   }
 
-  function make(shape = 'card') {
+  function make(shape = 'card', transparency = defaultTransparency) {
     const card = node('div', 'widget-weather');
     card.dataset.shape = shape;
+    setTransparency(card, transparency);
     const sky = node('div', 'weather-sky');
     sky.setAttribute('aria-hidden', 'true');
     const motif = node('div', 'weather-motif');
@@ -81,5 +87,5 @@ window.deskWeather = (() => {
     return { element: card, update };
   }
 
-  return { make };
+  return { make, setTransparency, defaultTransparency };
 })();

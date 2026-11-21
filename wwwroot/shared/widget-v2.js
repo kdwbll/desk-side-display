@@ -180,7 +180,7 @@ window.widgetV2 = (() => {
       } };
     }
     if (block.kind === 'weather') {
-      const card = deskWeather.make(block.shape ?? 'card');
+      const card = deskWeather.make(block.shape ?? 'card', block.transparency ?? undefined);
       box.append(card.element);
       return { box, update(context) {
         updateLabel(context);

@@ -393,6 +393,8 @@
       "required": [
         "kind"
       ],
+      "if": { "properties": { "kind": { "const": "weather" } } },
+      "else": { "not": { "required": ["transparency"] } },
       "properties": {
         "kind": {
           "enum": [
@@ -507,6 +509,13 @@
         "shape": {
           "enum": ["card", "round", "capsule", "square"],
           "description": "weather 块的形状。需声明 weather 权限，天气数据由系统自动绑定。"
+        },
+        "transparency": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "default": 30,
+          "description": "天气背景透光度。0 为实色，100 为透明。"
         }
       }
     }

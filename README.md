@@ -26,7 +26,7 @@
 
 | 硬件监控 | 剪贴板历史 |
 | --- | --- |
-| ![四张圆环卡片显示 CPU、GPU、内存和 GPU 温度的示例读数](docs/screenshots/hardware-dashboard.png) | ![流光背景上的剪贴板历史卡片，显示三条示例文本](docs/screenshots/android-clipboard.png) |
+| ![四张圆环卡片显示 CPU、GPU、内存和 GPU 温度的示例读数](docs/screenshots/hardware-dashboard.png) | ![流光背景上的独立剪贴板页面，卡片四边等距，列表显示示例文本](docs/screenshots/android-clipboard.png) |
 
 硬件监控可显示 Windows 的实时读数。剪贴板历史支持文本、图片和文件名，启用组件动作后可点选条目粘贴到 Windows。上图中的歌词、封面、照片、天气、硬件读数和剪贴板内容均为演示数据。
 

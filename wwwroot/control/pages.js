@@ -30,7 +30,8 @@
       gpuName: 'GPU 演示'
     },
     data: { 'weather.temperature': 16, 'weather.feels': 14, 'weather.code': 0, 'weather.wind': 3,
-      'weather.humidity': 54, 'weather.day': true, 'weather.place': '示例地点', 'weather.configured': true }
+      'weather.humidity': 54, 'weather.day': true, 'weather.place': '示例地点', 'weather.configured': true,
+      'clipboard.history': [{ id: 'preview', kind: 'text', text: '剪贴板示例', copiedAt: '2026-01-01T10:00:00Z' }] }
   };
   const sizes = [['small', '小'], ['medium', '中'], ['large', '大']];
   const weatherShapes = [['card', '卡片'], ['round', '圆形'], ['capsule', '胶囊'], ['square', '方形']];
@@ -163,7 +164,7 @@
   function refreshPreview() {
     const page = currentPage();
     preview.style.setProperty('--preview-background', page.color);
-    layoutTools.hidden = page.widgets.length === 0;
+    layoutTools.hidden = page.widgets.length === 0 || widgetPlacement.isClipboardPage(page);
     resetLayout.disabled = !widgetPlacement.isFree(page);
     previewClocks = [];
     previewMusic = [];
@@ -329,10 +330,36 @@
         entries: [['', '无'], ...Object.entries(metrics).map(([id, info]) => [id, info[0]])]
       });
     }
-    const weather = widget.manifest?.blocks?.find(block => block.kind === 'weather');
-    if (weather) field(fields, '天气形状', weather.shape ?? 'card', value => {
-      weather.shape = value;
-    }, { entries: weatherShapes });
+    const weatherBlocks = widget.manifest?.blocks?.filter(block => block.kind === 'weather') ?? [];
+    weatherBlocks.forEach((weather, index) => {
+      const suffix = weatherBlocks.length > 1 ? ' ' + (index + 1) : '';
+      field(fields, '天气形状' + suffix, weather.shape ?? 'card', value => {
+        weather.shape = value;
+      }, { entries: weatherShapes });
+      const label = node('label', 'weather-transparency', '背景透光度' + suffix);
+      const value = node('output');
+      const slider = node('input');
+      slider.type = 'range';
+      slider.min = 0;
+      slider.max = 100;
+      slider.value = weather.transparency ?? deskWeather.defaultTransparency;
+      slider.setAttribute('aria-label', '背景透光度' + suffix);
+      const showValue = () => {
+        value.textContent = slider.value + '%';
+        slider.setAttribute('aria-valuetext', value.textContent);
+      };
+      showValue();
+      slider.addEventListener('input', () => {
+        weather.transparency = slider.valueAsNumber;
+        showValue();
+        const frame = preview.querySelector('[data-widget-id="' + CSS.escape(widget.id) + '"]');
+        const card = frame?.querySelectorAll('.widget-weather')[index];
+        if (card) deskWeather.setTransparency(card, weather.transparency);
+        save.disabled = !dirty();
+      });
+      label.append(value, slider);
+      fields.append(label);
+    });
     if (widget.type === 'custom') fields.append(button('编辑组件 JSON', () => {
       replacing = { id: widget.id, page: page.id };
       const manifest = { ...widget.manifest, name: widget.name, color: widget.color, size: widget.size };

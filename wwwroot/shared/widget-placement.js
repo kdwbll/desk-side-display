@@ -7,6 +7,12 @@ window.widgetPlacement = (() => {
   const spans = { small: 1, medium: 2, large: 4 };
   const clamp = (value, min, max) => Math.round(Math.max(min, Math.min(max, value)));
   const isFree = page => page.widgets.some(widget => widget.placement);
+  function isClipboardPage(page) {
+    const [widget] = page.widgets;
+    return page.kind === 'custom' && page.widgets.length === 1 && widget.type === 'custom' &&
+      widget.manifest?.version === 2 &&
+      (widget.manifest.blocks ?? []).some(block => block.kind === 'history' && block.source === 'clipboard.history');
+  }
 
   function resolve(page) {
     const expanded = page.kind === 'hardware' || page.kind === 'custom';
@@ -135,5 +141,5 @@ window.widgetPlacement = (() => {
     return element;
   }
 
-  return { isFree, resolve, adjust, place, frame, preset };
+  return { isFree, isClipboardPage, resolve, adjust, place, frame, preset };
 })();
