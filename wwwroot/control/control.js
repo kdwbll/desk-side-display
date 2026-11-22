@@ -16,6 +16,9 @@ window.addEventListener('hashchange', markConsoleLocation);
 markConsoleLocation();
 const song = document.getElementById('song');
 const timeline = document.getElementById('timeline');
+const musicSource = document.getElementById('music-source');
+const musicSourceStatus = document.getElementById('music-source-status');
+const playerNames = { apple: 'Apple Music', netease: '网易云音乐' };
 const idle = document.getElementById('idle');
 const photo = document.getElementById('photo-file');
 const lyrics = document.getElementById('lyrics-file');
@@ -38,6 +41,7 @@ const usbMessages = {
 };
 const lyricsMessages = {
   'metadata-incomplete': '缺少歌曲时长或歌手，无法在线匹配',
+  'static-lyrics': '静态歌词',
   searching: '正在查找同步歌词',
   missing: '未找到同步歌词，可导入 LRC',
   unavailable: '在线歌词服务暂不可用，可导入 LRC',
@@ -71,7 +75,8 @@ function render() {
     adjustments.forEach(button => { button.disabled = true; });
     pointButton.disabled = true;
     offsetLabel.textContent = '歌词校准';
-    idle.disabled = photo.disabled = lyrics.disabled = true;
+    idle.disabled = photo.disabled = lyrics.disabled = musicSource.disabled = true;
+    musicSourceStatus.textContent = '';
     return;
   }
   usb.textContent = usbMessages[status.usb] ?? usbMessages.error;
@@ -82,15 +87,30 @@ function render() {
     if (coverUrl) playbackCover.src = coverUrl;
     else playbackCover.removeAttribute('src');
   }
+  const sourceName = playerNames[state.musicSource];
+  const choosing = status.status === 'choose-source';
+  for (const option of musicSource.options) {
+    const source = status.musicSources?.find(item => item.id === option.value);
+    if (!source) continue;
+    const suffix = source.playing ? ' · 播放中' : source.connected ? '' : ' · 未连接';
+    const label = playerNames[source.id] + suffix;
+    if (option.textContent !== label) option.textContent = label;
+  }
+  musicSource.value = status.preferences.musicSource ?? 'auto';
+  musicSource.disabled = busy;
+  const sourceHint = choosing ? '两个播放器都在播放，请选择播放源。'
+    : sourceName && musicSource.value === 'auto' ? '当前跟随 ' + sourceName : '';
+  if (musicSourceStatus.textContent !== sourceHint) musicSourceStatus.textContent = sourceHint;
   song.textContent = state.song ? [state.song.title, state.song.artist].filter(Boolean).join(' · ')
-    : status.status === 'error' ? '无法读取 Windows 媒体会话' : '等待 Apple Music 播放';
-  const progress = state.positionMs == null ? (state.song ? 'Apple Music 未提供播放进度' : '')
+    : choosing ? '' : status.status === 'error' ? '无法读取 Windows 媒体会话'
+    : sourceName ? '等待 ' + sourceName + ' 播放' : '等待 Windows 播放器';
+  const progress = state.positionMs == null ? (state.song ? (sourceName ?? '当前播放源') + '未提供播放进度' : '')
     : state.durationMs == null ? durationText(state.positionMs)
     : durationText(state.positionMs) + ' / ' + durationText(state.durationMs);
   const timing = status.lyricsStatus === 'local' && state.lines.some(line => line.words?.length)
     ? '本地逐字时间轴' : lyricsMessages[status.lyricsStatus];
   const lineTimed = state.lines.length > 0 && !state.lines.some(line => line.words?.length) ? '逐句高亮' : '';
-  timeline.textContent = [progress, timing, lineTimed].filter(Boolean).join(' · ');
+  timeline.textContent = [progress, state.positionEstimated ? '估算进度' : '', timing, lineTimed].filter(Boolean).join(' · ');
   const presets = status.availablePresets ?? ['clock', 'photo'];
   for (const option of idle.options) {
     option.hidden = option.value !== 'hardware' && !presets.includes(option.value);
@@ -105,19 +125,21 @@ function render() {
   }
   idle.disabled = photo.disabled = busy;
   lyrics.disabled = busy || !state.song;
-  if (point && (point.song !== state.song?.id || point.timingId !== state.lyricTimingId)) point = undefined;
+  if (point && (point.song !== state.song?.id || point.source !== state.musicSource ||
+      point.timingId !== state.lyricTimingId)) point = undefined;
   const offset = selectedOffset();
   const resetOffset = defaultOffset();
   const direction = !point && offset === resetOffset && offset > 0 ? '默认提前'
     : offset === 0 ? '歌词校准' : offset > 0 ? '歌词提前' : '歌词延后';
   const scope = point ? durationText(point.atMs) + ' 分段 · ' : '全曲 · ';
   offsetLabel.textContent = scope + direction + ' ' + (Math.abs(offset) / 1000).toFixed(1) + ' 秒';
-  pointButton.disabled = busy || !state.song || !state.lines.length || state.positionMs == null || !(state.durationMs > 500);
+  pointButton.disabled = busy || state.positionEstimated || !state.song || !state.lines.length ||
+    state.positionMs == null || !(state.durationMs > 500);
   pointButton.textContent = point ? '回到全曲校准' : '校准当前位置';
   pointButton.setAttribute('aria-pressed', String(Boolean(point)));
   for (const button of adjustments) {
     const delta = Number(button.dataset.adjust);
-    button.disabled = busy || !state.song || state.positionMs == null || !state.lines.length ||
+    button.disabled = busy || state.positionEstimated || !state.song || state.positionMs == null || !state.lines.length ||
       (button.dataset.adjust === 'reset' ? offset === resetOffset : Math.abs(offset + delta) > 10000);
   }
   const allowed = { previous: status.canPrevious, toggle: status.canToggle, next: status.canNext };
@@ -185,7 +207,8 @@ async function act(callback) {
 }
 
 function setPreference(change) {
-  return send('/api/settings', JSON.stringify({ ...state.control.preferences, ...change }));
+  const { mode, idle } = state.control.preferences;
+  return send('/api/settings', JSON.stringify({ mode, idle, ...change }));
 }
 
 for (const button of modes) {
@@ -195,15 +218,22 @@ idle.addEventListener('change', () => {
   const selection = idle.value;
   act(() => setPreference({ idle: selection }));
 });
+musicSource.addEventListener('change', () => {
+  const source = musicSource.value;
+  act(() => send('/api/music-source', JSON.stringify({ source })));
+});
 for (const button of playback) {
-  button.addEventListener('click', () => act(() => send('/api/playback/' + button.dataset.playback)));
+  button.addEventListener('click', () => act(() => {
+    const query = state.musicSource ? '?source=' + encodeURIComponent(state.musicSource) : '';
+    return send('/api/playback/' + button.dataset.playback + query);
+  }));
 }
 for (const button of adjustments) {
   button.addEventListener('click', () => act(() => {
     const offset = selectedOffset();
     const offsetMs = button.dataset.adjust === 'reset' ? defaultOffset() : offset + Number(button.dataset.adjust);
     return send('/api/lyrics/offset', JSON.stringify({
-      song: state.song.id, timingId: state.lyricTimingId, offsetMs, atMs: point?.atMs
+      song: state.song.id, source: state.musicSource, timingId: state.lyricTimingId, offsetMs, atMs: point?.atMs
     }));
   }));
 }
@@ -215,7 +245,7 @@ pointButton.addEventListener('click', () => {
       !best || Math.abs(item.atMs - position) < Math.abs(best.atMs - position) ? item : best, undefined);
     const atMs = nearest && Math.abs(nearest.atMs - position) <= 2500 ? nearest.atMs :
       Math.max(250, Math.min(Math.floor(state.durationMs) - 250, Math.round(position / 250) * 250));
-    point = { song: state.song.id, timingId: state.lyricTimingId, atMs };
+    point = { song: state.song.id, source: state.musicSource, timingId: state.lyricTimingId, atMs };
   }
   render();
 });
@@ -234,12 +264,14 @@ photo.addEventListener('change', () => {
 lyrics.addEventListener('change', () => {
   const file = lyrics.files[0];
   const songId = state?.song?.id;
+  const source = state?.musicSource;
   if (!file || !songId) return;
   lyrics.value = '';
   act(async () => {
     const form = new FormData();
     form.append('file', file);
     form.append('song', songId);
+    if (source) form.append('source', source);
     await send('/api/lyrics', form);
     return '已为当前歌曲保存歌词。';
   });

@@ -1,6 +1,6 @@
 # 桌面副屏 · Desk Side Display
 
-用 USB 把闲置的安卓手机变成横屏桌面摆件。Windows 上播放 Apple Music 时，手机显示专辑封面和同步歌词。平时可以滑到时钟、相框、硬件监控，或自己排版的卡片页面。
+用 USB 把闲置的安卓手机变成横屏桌面摆件。Windows 上播放 Apple Music 或网易云音乐时，手机显示专辑封面和歌词。平时可以滑到时钟、相框、硬件监控，或自己排版的卡片页面。
 
 [下载 Windows 版](https://github.com/kdwbll/desk-side-display/releases/latest) · [在线体验](https://kdwbll.github.io/desk-side-display/) · [使用说明](使用说明.md) · [参与贡献](CONTRIBUTING.md) · [MIT 许可证](LICENSE)
 
@@ -37,17 +37,20 @@
 - **界面与小组件**把页面顺序和横屏预览放在同一区域。可直接拖动、缩放和吸附对齐卡片，或输入像素宽高，保存后同步到手机。
 - **组件数据源与权限**用于设置天气地点，启用便签等组件动作，以及配置剪贴板历史、窗口信息和自定义数据源。也可使用 AI 生成可导入的 JSON 组件。 [小组件规范](docs/widget-api.md)
 - **歌词外观**支持实时预览歌词颜色、上下文不透明度、模糊度、流光速度和色块过渡，最多保存 10 组预设。
-- **Apple Music**支持切歌、暂停、导入 LRC 或 TTML，以及校准全曲或指定时段的歌词。时间轴默认提前 1.3 秒，可在控制面板微调。
+- **音乐播放**可在 Apple Music 和网易云音乐之间选择。只有一款在播放时可自动跟随，两款都在播放时提示选源。手机歌词、封面和播放按钮都跟随所选来源。
+- **歌词进度**优先使用播放器上报的时间轴。网易云只提供曲目信息时，可按匹配到的总时长估算进度。需要网易云实时时间轴时，可使用 BetterNCM + InfLink-rs。 [播放源与歌词说明](使用说明.md#播放源与歌词)
+
+![两款播放器同时播放时，控制面板在播放源下拉菜单旁提示手动选择](docs/screenshots/windows-dual-music.png)
 
 ![歌词外观实时预览及流光速度、色块过渡和外观预设](docs/screenshots/windows-control.png)
 
 ## 快速开始
 
 1. 解压 [GitHub Releases](https://github.com/kdwbll/desk-side-display/releases/latest) 中的 `win-x64.zip` 发布包。发布包内置 .NET 运行时。从源码启动时需安装 [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)。
-2. 从 Android 官网下载 Windows 版 [SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools)，将解压后的 `platform-tools` 文件夹放在程序目录的 `.tools` 文件夹内，确认路径为 `.tools\platform-tools\adb.exe`。需要歌词时，在电脑安装 Apple Music 桌面客户端。
+2. 从 Android 官网下载 Windows 版 [SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools)，将解压后的 `platform-tools` 文件夹放在程序目录的 `.tools` 文件夹内，确认路径为 `.tools\platform-tools\adb.exe`。需要歌词时，在电脑安装 Apple Music 或网易云音乐桌面客户端。
 3. 双击 [Create-Desktop-Shortcut.cmd](Create-Desktop-Shortcut.cmd)，在 Windows 桌面创建「桌面副屏」。以后双击这个图标就能打开控制面板。也可以直接运行 [Start-DeskSideDisplay.cmd](Start-DeskSideDisplay.cmd)。
 4. 在安卓手机上开启 USB 调试，通过支持数据传输的 USB 线连上电脑，并在手机上允许调试。
-5. 控制面板显示「USB 已连接」后，用**手机浏览器**访问 `http://127.0.0.1:8765/`。把手机横放，轻点页面进入全屏。随后可播放 Apple Music 看歌词，或在控制面板的「界面与小组件」添加卡片及全屏预设。
+5. 控制面板显示「USB 已连接」后，用**手机浏览器**访问 `http://127.0.0.1:8765/`。把手机横放，轻点页面进入全屏。可在 Windows 播歌查看歌词，也可在「界面与小组件」添加卡片及全屏预设。
 
 首次配置、歌词匹配和排查步骤见[详细使用说明](使用说明.md)。
 
@@ -57,7 +60,7 @@
 | --- | --- |
 | `DeskSideDisplay.csproj` | .NET 9 项目和构建配置 |
 | `Program.cs` | Windows 服务入口、页面路由和本机接口 |
-| `Services/Media/` | 读取和控制 Windows 上的 Apple Music |
+| `Services/Media/` | 读取 Windows 播放会话，在 Apple Music 和网易云音乐之间选源并控制播放 |
 | `Services/Lyrics/` | 歌词匹配、时间轴解析、导入和校准 |
 | `Services/Display/` | 硬件指标、剪贴板历史、快捷键与便签动作 |
 | `Services/Settings/` | 界面布局、相框、卡片媒体、外观和预设的保存 |

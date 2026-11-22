@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#171923">
   <title>桌面副屏</title>
-  <link rel="stylesheet" href="/display/display.css">
+  <link rel="stylesheet" href="/display/display.css?v=netease-lyrics">
   <link rel="stylesheet" href="/shared/lyric-appearance.css">
   <link rel="stylesheet" href="/shared/widgets.css">
   <link rel="stylesheet" href="/shared/widget-v2.css">
@@ -19,7 +19,7 @@
   <script src="/shared/widget-v2.js" defer></script>
   <script src="/shared/widget-placement.js" defer></script>
   <script src="/display/pages.js" defer></script>
-  <script src="/display/display.js" defer></script>
+  <script src="/display/display.js?v=netease-lyrics" defer></script>
 </head>
 <body>
   <main aria-label="安卓桌面副屏">
@@ -36,6 +36,7 @@
         </div>
       </div>
       <div class="lyric-stack"></div>
+      <div id="static-lyrics" class="lyric-stack static-lyrics" aria-label="静态歌词" tabindex="0" hidden></div>
     </section>
     <section class="screen clock" id="clock" aria-label="时钟" hidden>
       <time id="time"></time>

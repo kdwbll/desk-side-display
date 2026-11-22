@@ -6,6 +6,7 @@ const date = document.getElementById('date');
 const title = document.getElementById('track');
 const artist = document.getElementById('artist');
 const lyricStack = document.querySelector('.lyric-stack');
+const staticLyrics = document.getElementById('static-lyrics');
 const lyricView = document.getElementById('lyrics');
 const updateAlbumFlow = createAlbumFlow(lyricView);
 const contextLines = 5;
@@ -13,7 +14,8 @@ const lyricOffsets = Array.from({ length: 2 * contextLines + 1 }, (_, i) => i - 
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const lyricNotes = {
   searching: '正在查找歌词…',
-  'no-timeline': '等待 Apple Music 播放进度',
+  'no-timeline': '等待播放进度',
+  'choose-source': '请在 Windows 控制面板选择播放源',
   'metadata-incomplete': '等待歌曲信息',
   unavailable: '暂时无法取得歌词',
   missing: '暂未匹配到同步歌词',
@@ -81,6 +83,7 @@ function syncPlaybackClock(next, sent, received) {
   }
   const rate = next.playing ? next.rate : 0;
   const sameTransport = playbackClock && next.song?.id === state?.song?.id &&
+    next.musicSource === state.musicSource && next.positionEstimated === state.positionEstimated &&
     next.playing === state.playing && rate === playbackClock.rate;
   const roundTrip = received - sent;
   // A late same-track sample cannot pinpoint the current position accurately.
@@ -123,19 +126,44 @@ function refreshScreen(now) {
   }
   if (mode !== 'lyrics') return;
   const song = state?.song;
-  const songId = song?.id ?? '';
+  const songId = (state?.musicSource ?? '') + ':' + (song?.id ?? '');
   if (displayedSong !== songId) {
-    title.textContent = song?.title ?? 'Apple Music';
+    title.textContent = song?.title ?? '音乐';
     artist.textContent = song?.artist ?? '';
     displayedSong = songId;
     activeIndex = undefined;
+    lineKey = undefined;
+    stopLyricMotion();
   }
 
   if (!state || elapsed > stateTimeoutMs) {
+    lyricStack.hidden = false;
+    staticLyrics.hidden = true;
     if (lineKey !== 'offline') {
       renderLyrics([], -1, '等待 Windows 连接');
       lineKey = 'offline';
       activeIndex = undefined;
+    }
+    return;
+  }
+  const showStatic = state.lyricsStatus === 'static-lyrics';
+  lyricStack.hidden = showStatic;
+  staticLyrics.hidden = !showStatic;
+  if (showStatic) {
+    const key = 'static:' + songId + ':' + state.lyricTimingId;
+    if (lineKey !== key) {
+      stopLyricMotion();
+      const note = document.createElement('p');
+      note.className = 'lyric-note';
+      note.textContent = '网易云音乐未提供播放进度 · 静态歌词';
+      staticLyrics.replaceChildren(note, ...state.lines.map(line => {
+        const row = document.createElement('p');
+        row.textContent = line.text;
+        return row;
+      }));
+      staticLyrics.scrollTop = 0;
+      activeIndex = undefined;
+      lineKey = key;
     }
     return;
   }
@@ -154,7 +182,9 @@ function refreshScreen(now) {
   const index = low - 1;
   const line = state.lines[index];
   const surroundings = lyricOffsets.map(offset => state.lines[index + offset]?.text ?? '');
-  const note = state.lines.length ? '' : lyricNotes[state.lyricsStatus] ?? '';
+  const note = state.lines.length ? ''
+    : state.lyricsStatus === 'no-timeline' && state.musicSource === 'netease'
+      ? '等待网易云音乐播放进度' : lyricNotes[state.lyricsStatus] ?? '';
   const key = JSON.stringify([song?.id, state.lyricTimingId, index, line, surroundings, note]);
   if (lineKey !== key) {
     const smooth = lineKey && displayedTiming === state.lyricTimingId &&

@@ -90,6 +90,16 @@ main { display: flex; flex-direction: column; position: relative; touch-action: 
   margin: 0;
   overflow-wrap: anywhere;
 }
+.static-lyrics {
+  height: 90cqh;
+  padding-block: 3cqh;
+  font-size: clamp(13px, 3.15cqw, 8cqh);
+  line-height: 1.45;
+}
+.static-lyrics .lyric-note {
+  color: var(--accent-text);
+  font-size: .65em;
+}
 .lyric-departing {
   position: absolute;
   justify-self: center;

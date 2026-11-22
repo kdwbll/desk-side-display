@@ -1,7 +1,6 @@
 import { appearancePresets, defaultAppearance, initialLayout, metrics, samples, tracks } from './demo-data.js';
 
 const durationMs = 31600;
-const defaultOffset = 1300;
 const allowedImages = {
   image: ['image/jpeg', 'image/png', 'image/webp'],
   gif: ['image/gif']
@@ -60,66 +59,92 @@ export async function createDemo(notify) {
   let layout = await initialLayout();
   const media = new Map(Object.entries(samples));
   let preferences = { mode: 'photo', idle: 'clock' };
+  let musicSource = 'auto';
   let appearance = { ...defaultAppearance };
   let presets = appearancePresets();
   let sources = { actions: true, clipboard: true, notifications: false, window: false, interfaces: [], apps: {} };
   let sourcesRevision = 0;
   let displayRevision = 0;
   let wallpaper = samples.mountain;
-  let trackIndex = 0;
-  let playing = true;
-  let anchor = performance.now();
-  let lastPlaying = anchor;
-  let position = 6790;
+  const now = performance.now();
+  const players = {
+    apple: { trackIndex: 0, playing: true, anchor: now, lastPlaying: now, position: 6790 },
+    netease: { trackIndex: 1, playing: false, anchor: now, lastPlaying: -Infinity, position: 0 }
+  };
   const imports = new Map();
   const offsets = new Map();
   const points = new Map();
 
-  const currentTrack = () => tracks[trackIndex];
+  const selectedSource = () => {
+    if (musicSource !== 'auto') return musicSource;
+    if (players.apple.playing && players.netease.playing) return null;
+    if (players.apple.playing) return 'apple';
+    if (players.netease.playing) return 'netease';
+    return players.netease.lastPlaying > players.apple.lastPlaying ? 'netease' : 'apple';
+  };
+  const currentTrack = () => tracks[players[selectedSource()]?.trackIndex];
   const widgetFor = id => layout.pages.flatMap(page => page.widgets).find(widget => widget.id === id);
   const appearanceState = () => ({ appearance, presets });
   const sourceState = () => ({ config: sources, notificationKey: null });
 
-  function positionAt(now) {
-    return Math.min(durationMs, position + (playing ? now - anchor : 0));
+  function positionAt(player, now) {
+    return Math.min(durationMs, player.position + (player.playing ? now - player.anchor : 0));
   }
 
-  function transport(action, now = performance.now()) {
+  function transport(player, action, now = performance.now()) {
     if (action === 'toggle') {
-      position = positionAt(now);
-      playing = !playing;
-      if (!playing) lastPlaying = now;
+      player.position = positionAt(player, now);
+      player.playing = !player.playing;
+      player.lastPlaying = now;
     } else {
-      trackIndex = (trackIndex + (action === 'next' ? 1 : -1) + tracks.length) % tracks.length;
-      position = 0;
+      player.trackIndex = (player.trackIndex + (action === 'next' ? 1 : -1) + tracks.length) % tracks.length;
+      player.position = 0;
     }
-    anchor = now;
+    player.anchor = now;
+  }
+
+  function controlPlayback(action, expected) {
+    const source = selectedSource();
+    if (!source) return error('两个播放器都在播放，请先在控制面板选择播放源。', 409);
+    if (expected && expected !== source) return error('播放源已切换，请重试。', 409);
+    transport(players[source], action);
+    return ok();
   }
 
   function state(view) {
     const now = performance.now();
-    if (playing) {
-      lastPlaying = now;
-      if (positionAt(now) >= durationMs) transport('next', now);
+    for (const player of Object.values(players)) {
+      if (!player.playing) continue;
+      player.lastPlaying = now;
+      if (positionAt(player, now) >= durationMs) transport(player, 'next', now);
     }
+    const source = selectedSource();
+    const player = players[source];
     const track = currentTrack();
-    const imported = imports.get(track.id);
+    const imported = imports.get(track?.id);
+    const calibrationKey = source + ':' + track?.id;
+    const defaultOffset = source === 'netease' ? 0 : 1300;
     const availablePresets = layout.pages.filter(page => page.kind === 'clock' || page.kind === 'photo').map(page => page.id);
     const idle = ['hardware', ...availablePresets].includes(preferences.idle)
       ? preferences.idle : availablePresets[0] ?? 'hardware';
     const selected = ['auto', 'lyrics', ...availablePresets].includes(preferences.mode) ? preferences.mode : 'auto';
-    const mode = selected === 'auto' ? (playing || now - lastPlaying < 15000 ? 'lyrics' : idle) : selected;
-    const capabilities = { canPrevious: true, canToggle: true, canNext: true };
+    const mode = selected === 'auto' ? (player && (player.playing || now - player.lastPlaying < 15000) ? 'lyrics' : idle) : selected;
+    const capabilities = { canPrevious: Boolean(player), canToggle: Boolean(player), canNext: Boolean(player) };
     return {
-      mode, displayRevision, song: { id: track.id, title: track.title, artist: '桌面副屏演示' },
-      playing, rate: 1, positionMs: positionAt(now), durationMs, playback: capabilities,
-      cover: track.cover, wallpaper, lines: imported?.lines ?? track.lyrics,
-      lyricsStatus: 'local', lyricTimingId: imported?.id ?? track.id, lyricAppearance: appearance,
-      lyricOffsetMs: offsets.get(track.id) ?? defaultOffset,
-      lyricTimingPoints: points.get(track.id) ?? [],
+      mode, displayRevision, musicSource: source,
+      song: track ? { id: track.id, title: track.title, artist: '桌面副屏演示' } : null,
+      playing: player?.playing ?? false, rate: 1, positionMs: player ? positionAt(player, now) : null,
+      positionEstimated: source === 'netease',
+      durationMs: player ? durationMs : null, playback: capabilities,
+      cover: track?.cover, wallpaper, lines: imported?.lines ?? track?.lyrics ?? [],
+      lyricsStatus: source ? 'local' : 'choose-source', lyricTimingId: imported?.id ?? track?.id, lyricAppearance: appearance,
+      lyricOffsetMs: offsets.get(calibrationKey) ?? defaultOffset,
+      lyricTimingPoints: points.get(calibrationKey) ?? [],
       control: view === 'control' ? {
-        preferences: { mode: selected, idle }, availablePresets, usb: 'ready',
-        lyricsStatus: 'local', defaultLyricOffsetMs: defaultOffset, ...capabilities
+        preferences: { mode: selected, idle, musicSource }, availablePresets, usb: 'ready',
+        musicSources: Object.entries(players).map(([id, item]) => ({ id, connected: true, playing: item.playing })),
+        status: source ? 'ready' : 'choose-source', lyricsStatus: source ? 'local' : 'waiting',
+        defaultLyricOffsetMs: defaultOffset, ...capabilities
       } : null
     };
   }
@@ -137,7 +162,7 @@ export async function createDemo(notify) {
     };
   }
 
-  function widgetAction(path) {
+  function widgetAction(path, expected) {
     const [, id, operation, action] = path.split('/').slice(2);
     const widget = widgetFor(id);
     if (operation === 'press' && widget?.type === 'shortcut' && layout.shortcutsEnabled) {
@@ -146,7 +171,7 @@ export async function createDemo(notify) {
       notify('模拟操作 · 在 Windows 桌面新建便签.txt 并打开');
     } else if (operation === 'media' && widget?.type === 'music' && sources.actions &&
       ['previous', 'next', 'toggle'].includes(action)) {
-      transport(action);
+      return controlPlayback(action, expected);
     } else if (operation === 'action' && widget?.type === 'custom' && sources.actions) {
       notify('模拟执行 · ' + (widget.name || '自定义组件'));
     } else {
@@ -194,7 +219,9 @@ export async function createDemo(notify) {
   }
 
   async function request(input, options, view) {
-    const path = new URL(input, location.href).pathname;
+    const url = new URL(input, location.href);
+    const path = url.pathname;
+    const expected = url.searchParams.get('source');
     if (options?.method !== 'POST') {
       switch (path) {
         case '/api/state': return json(state(view));
@@ -207,13 +234,12 @@ export async function createDemo(notify) {
       }
     }
     const body = typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
-    if (path.startsWith('/api/widgets/')) return widgetAction(path);
+    if (path.startsWith('/api/widgets/')) return widgetAction(path, expected);
     if (path.startsWith('/api/appearance/presets')) return changePreset(path, body);
     if (path.startsWith('/api/playback/')) {
       const action = path.split('/').at(-1);
       if (!['previous', 'next', 'toggle'].includes(action)) return error('播放操作无效。');
-      transport(action);
-      return ok();
+      return controlPlayback(action, expected);
     }
     if (path.startsWith('/api/widget-images/')) {
       const types = allowedImages[path.split('/').at(-1)] ?? [];
@@ -224,6 +250,10 @@ export async function createDemo(notify) {
       return json({ id });
     }
     switch (path) {
+      case '/api/music-source':
+        if (!['auto', ...Object.keys(players)].includes(body?.source)) return error('无效的播放源。');
+        musicSource = body.source;
+        return ok();
       case '/api/settings':
         preferences = body;
         displayRevision++;
@@ -247,20 +277,28 @@ export async function createDemo(notify) {
       }
       case '/api/lyrics': {
         const file = body?.get?.('file');
+        const track = currentTrack();
+        if (!track || body.get('song') !== track.id || (body.has('source') && body.get('source') !== selectedSource()))
+          return error('歌曲已切换。请确认正在播放的歌曲后重试。', 409);
         if (!file?.size || file.size > 256 * 1024) return error('请选择 256 KB 以内的 LRC 或 TTML。');
         const lyrics = parseLyrics(await file.text());
         if (!lyrics.length) return error('文件中没有带时间戳的歌词。');
-        imports.set(currentTrack().id, { id: crypto.randomUUID(), lines: lyrics });
+        imports.set(track.id, { id: crypto.randomUUID(), lines: lyrics });
         return ok();
       }
       case '/api/lyrics/offset': {
-        const id = currentTrack().id;
+        const id = currentTrack()?.id;
+        if (!id || body?.song !== id || (body.source && body.source !== selectedSource()))
+          return error('歌曲已切换，请重新校准。', 409);
+        const source = selectedSource();
+        if (source === 'netease') return error('校准需要播放器提供实际进度。', 409);
+        const key = source + ':' + id;
         if (!Number.isFinite(body?.offsetMs) || Math.abs(body.offsetMs) > 10000) return error('校准超出范围。');
         if (Number.isFinite(body.atMs)) {
-          const existing = (points.get(id) ?? []).filter(item => item.atMs !== body.atMs);
+          const existing = (points.get(key) ?? []).filter(item => item.atMs !== body.atMs);
           if (body.offsetMs) existing.push({ atMs: body.atMs, offsetMs: body.offsetMs });
-          points.set(id, existing.sort((a, b) => a.atMs - b.atMs));
-        } else offsets.set(id, body.offsetMs);
+          points.set(key, existing.sort((a, b) => a.atMs - b.atMs));
+        } else offsets.set(key, body.offsetMs);
         return ok();
       }
       default: return error('演示接口不存在。', 404);

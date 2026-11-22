@@ -35,8 +35,8 @@ builder.Services.AddHostedService<ClipboardFileHistoryPoller>();
 builder.Services.AddSingleton<KeyboardShortcut>();
 builder.Services.AddSingleton(new DesktopNotes(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory)));
 builder.Services.AddSingleton<HardwareMetrics>();
-builder.Services.AddSingleton<AppleMusic>();
-builder.Services.AddHostedService(service => service.GetRequiredService<AppleMusic>());
+builder.Services.AddSingleton<MusicPlayers>();
+builder.Services.AddHostedService(service => service.GetRequiredService<MusicPlayers>());
 builder.Services.AddSingleton(new UsbBridge(Path.Combine(project, ".tools", "platform-tools", "adb.exe"), displayPort));
 builder.Services.AddHostedService(service => service.GetRequiredService<UsbBridge>());
 
@@ -84,56 +84,75 @@ app.MapGet("/", (HttpContext context) =>
     return Results.File(Path.Combine(app.Environment.WebRootPath, page, "index.html"), "text/html; charset=utf-8");
 });
 
-app.MapGet("/api/state", (HttpContext context, AppleMusic player, PanelSettings settings, DisplayPages pages,
+app.MapGet("/api/state", (HttpContext context, MusicPlayers player, PanelSettings settings, DisplayPages pages,
     LyricsCatalog catalog, UsbBridge usb, LyricAppearanceSettings appearance) =>
 {
-    var state = player.Read();
     var (preferences, wallpaper, displayRevision) = settings.Read();
+    var playback = player.Read();
+    var (musicSource, state) = playback.Select(preferences.MusicSource);
     var availablePresets = pages.Read().Pages.Where(page => page.Kind is "clock" or "photo")
         .Select(page => page.Id).ToArray();
     var idle = preferences.Idle == "hardware" || availablePresets.Contains(preferences.Idle) ? preferences.Idle
         : availablePresets.Contains("clock") ? "clock" : availablePresets.FirstOrDefault() ?? "hardware";
     var selectedMode = preferences.Mode is "auto" or "lyrics" || availablePresets.Contains(preferences.Mode)
         ? preferences.Mode : "auto";
-    var labels = catalog.Read(state.Song, state.DurationMs);
-    var calibration = catalog.ReadCalibration(state.Song, labels);
+    var allowNeteaseText = musicSource == MusicPlayers.Netease && state.PositionMs == null;
+    var labels = catalog.Read(state.Song, state.DurationMs, allowNeteaseText);
+    var calibration = catalog.ReadCalibration(state.Song, labels, musicSource);
     var recentSong = state.Song != null &&
         (state.Playing || (state.Paused && DateTimeOffset.UtcNow - state.LastPlaying < TimeSpan.FromSeconds(15)));
     var mode = selectedMode == "auto" ? (recentSong ? "lyrics" : idle) : selectedMode;
     var age = state.SampledAt == 0 ? 0 : Math.Clamp(Stopwatch.GetElapsedTime(state.SampledAt).TotalMilliseconds, 0, 5_000);
-    double? position = state.PositionMs == null ? null : Math.Min(
-        state.DurationMs ?? double.MaxValue, state.PositionMs.Value + (state.Playing ? age * state.Rate : 0));
+    var duration = state.DurationMs ?? labels.DurationMs;
+    var positionAtSample = state.PositionMs ?? (duration is > 0 ? state.EstimatedPositionMs : null);
+    var positionEstimated = state.PositionMs == null && positionAtSample != null;
+    var rate = positionEstimated ? 1 : state.Rate;
+    double? position = positionAtSample == null ? null : Math.Min(
+        duration ?? double.MaxValue, positionAtSample.Value + (state.Playing ? age * rate : 0));
+    var staticLyrics = allowNeteaseText && position == null && labels.Lines.Length > 0;
+    var lyricsStatus = state.Status == "choose-source" ? state.Status :
+        staticLyrics ? "static-lyrics" :
+        position == null && state.Song != null && (!allowNeteaseText || labels.Status != "searching")
+            ? "no-timeline" : labels.Status;
     var control = context.Connection.LocalPort == controlPort ? new
     {
-        preferences = new PanelPreferences(selectedMode, idle),
+        preferences = preferences with { Mode = selectedMode, Idle = idle },
+        musicSources = new[]
+        {
+            new { id = MusicPlayers.Apple, connected = playback.Apple.Session != null, playback.Apple.Playing },
+            new { id = MusicPlayers.Netease, connected = playback.Netease.Session != null, playback.Netease.Playing }
+        },
         availablePresets,
         usb = usb.Status,
         state.Status,
         state.CanToggle,
         state.CanPrevious,
         state.CanNext,
-        defaultLyricOffsetMs = LyricsCatalog.DefaultLeadMs,
-        lyricsStatus = labels.Status
+        defaultLyricOffsetMs = LyricsCatalog.DefaultLeadMs(musicSource),
+        lyricsStatus = staticLyrics ? "static-lyrics" : labels.Status
     } : null;
     return Results.Ok(new
     {
         mode,
         displayRevision,
+        musicSource,
         lyricAppearance = appearance.Read().Appearance,
         song = state.Song,
         state.Playing,
-        state.Rate,
+        rate,
         playback = new { state.CanToggle, state.CanPrevious, state.CanNext },
         positionMs = position,
-        lyricsStatus = position == null && state.Song != null ? "no-timeline" : labels.Status,
+        positionEstimated,
+        lyricsStatus,
         lyricTimingId = labels.TimingId,
         lyricOffsetMs = calibration.Offset,
         lyricTimingPoints = calibration.Points
-            .Where(point => state.DurationMs > point.AtMs).ToArray(),
-        state.DurationMs,
+            .Where(point => duration > point.AtMs).ToArray(),
+        durationMs = duration,
         cover = state.Artwork == null ? null : $"/media/cover?v={state.Artwork.Version}",
         wallpaper = wallpaper == null ? null : $"/media/wallpaper?v={wallpaper.Version}",
-        lines = position == null ? [] : labels.Lines,
+        lines = staticLyrics ? labels.Lines.Select(line => new LyricLine(line.AtMs, line.Text)).ToArray()
+            : position == null ? [] : labels.Lines,
         control
     });
 });
@@ -195,7 +214,7 @@ app.MapGet("/api/widget-data", async (string page, HttpContext context, DisplayP
 });
 
 app.MapPost("/api/widgets/{id:guid}/action/{trigger}", async (Guid id, string trigger, uint? clipboardVersion, string? historyItem,
-    HttpContext context, DisplayPages pages, WidgetSources sources, UsbBridge usb, AppleMusic music,
+    string? source, HttpContext context, DisplayPages pages, WidgetSources sources, UsbBridge usb, MusicPlayers music,
     KeyboardShortcut keyboard, CancellationToken token) =>
 {
     if (context.Connection.LocalPort != displayPort || usb.Status != "ready" || !sources.Read().Actions)
@@ -204,19 +223,20 @@ app.MapPost("/api/widgets/{id:guid}/action/{trigger}", async (Guid id, string tr
         .FirstOrDefault(item => item.Id == id && item.Type == "custom" && item.Manifest?.Version == 2);
     var action = widget == null ? null : WidgetProtocol.Action(widget.Manifest!, trigger);
     if (action == null) return Results.NotFound();
-    var error = await sources.Act(action, music, keyboard, clipboardVersion, historyItem, token);
+    var error = await sources.Act(action, music, keyboard, clipboardVersion, historyItem, source, token);
     return error == null ? Results.NoContent() : Error(error, 409);
 });
 
-app.MapPost("/api/widgets/{id:guid}/media/{action}", async (Guid id, string action, HttpContext context,
-    DisplayPages pages, WidgetSources sources, UsbBridge usb, AppleMusic music) =>
+app.MapPost("/api/widgets/{id:guid}/media/{action}", async (Guid id, string action, string? source, HttpContext context,
+    DisplayPages pages, WidgetSources sources, UsbBridge usb, MusicPlayers music, CancellationToken token) =>
 {
     if (context.Connection.LocalPort != displayPort || usb.Status != "ready" || !sources.Read().Actions)
         return Results.StatusCode(403);
     if (action is not ("previous" or "toggle" or "next") ||
         !pages.Read().Pages.SelectMany(page => page.Widgets).Any(widget => widget.Id == id && widget.Type == "music"))
         return Results.NotFound();
-    return await music.ControlAsync(action) ? Results.NoContent() : Error("Apple Music 暂不可控制。", 409);
+    var error = await music.ControlAsync(action, source, token);
+    return error == null ? Results.NoContent() : Error(error, 409);
 });
 
 app.MapPost("/api/widgets/{id:guid}/press", (Guid id, HttpContext context, DisplayPages pages,
@@ -264,7 +284,7 @@ app.MapPost("/api/appearance/presets/{id:guid}/{action}",
     return result == null ? Error("这组预设已被删除。", 404) : Results.Ok(result);
 });
 
-app.MapGet("/media/cover", (string? v, AppleMusic player) => ImageResult(player.Read().Artwork, v));
+app.MapGet("/media/cover", (string? v, MusicPlayers player) => ImageResult(player.Selected().State.Artwork, v));
 app.MapGet("/media/wallpaper", (string? v, PanelSettings settings) => ImageResult(settings.Read().Wallpaper, v));
 app.MapGet("/media/widgets/{id}", (string id, WidgetImages images) =>
     images.Find(id) is { } media ? Results.File(media.Path, media.Type) : Results.NotFound());
@@ -276,11 +296,14 @@ app.MapPost("/api/settings", async (HttpRequest request, PanelSettings settings,
         ? Results.NoContent() : Error("无效的显示模式。");
 });
 
-app.MapPost("/api/playback/{action}", async (string action, AppleMusic player) =>
+app.MapPost("/api/music-source", (MusicSourceRequest request, PanelSettings settings) =>
+    settings.SetMusicSource(request.Source) ? Results.NoContent() : Error("无效的播放源。"));
+
+app.MapPost("/api/playback/{action}", async (string action, string? source, MusicPlayers player, CancellationToken token) =>
 {
     if (action is not ("previous" or "toggle" or "next")) return Results.NotFound();
-    return await player.ControlAsync(action) ? Results.NoContent()
-        : Error("Apple Music 当前无法执行这个操作。请先在桌面客户端播放一首歌。", 409);
+    var error = await player.ControlAsync(action, source, token);
+    return error == null ? Results.NoContent() : Error(error, 409);
 });
 
 app.MapPost("/api/wallpaper", async (HttpRequest request, PanelSettings settings, CancellationToken token) =>
@@ -302,34 +325,37 @@ app.MapPost("/api/widget-images/{kind}", async (string kind, HttpRequest request
     return Results.Ok(new { id = images.Save(image) });
 });
 
-app.MapPost("/api/lyrics/offset", async (HttpRequest request, AppleMusic player, LyricsCatalog catalog, CancellationToken token) =>
+app.MapPost("/api/lyrics/offset", async (HttpRequest request, MusicPlayers player, LyricsCatalog catalog, CancellationToken token) =>
 {
     var offset = await request.ReadFromJsonAsync<OffsetRequest>(token);
-    var state = player.Read();
+    var (musicSource, state) = player.Selected();
     var current = state.Song;
     if (offset == null || offset.OffsetMs is < -maxLyricOffsetMs or > maxLyricOffsetMs)
         return Error("歌词校准范围是提前或延后 10 秒。");
-    if (current == null || current.Id != offset.Song)
+    if (current == null || current.Id != offset.Song || offset.Source != null && musicSource != offset.Source)
         return Error("歌曲已切换，请重新校准。", 409);
+    if (state.PositionMs == null) return Error("校准需要播放器提供实际进度。", 409);
     var source = catalog.Read(current, state.DurationMs);
     if (source.Lines.Length == 0 || offset.TimingId != null && offset.TimingId != source.TimingId)
         return Error("歌词时间轴已更新，请重新校准。", 409);
     if (offset.AtMs is int at)
     {
         if (state.DurationMs is not double duration || duration > int.MaxValue ||
-            !catalog.SetTimingPoint(current, source, new LyricTimingPoint(at, offset.OffsetMs), (int)duration))
+            !catalog.SetTimingPoint(current, source, musicSource, new LyricTimingPoint(at, offset.OffsetMs), (int)duration))
             return Error("这个点离相邻校准点或歌曲边界太近，请稍移位置或减小调整。");
     }
-    else catalog.SetOffset(current, source, offset.OffsetMs);
+    else catalog.SetOffset(current, source, musicSource, offset.OffsetMs);
     return Results.NoContent();
 });
 
-app.MapPost("/api/lyrics", async (HttpRequest request, AppleMusic player, LyricsCatalog catalog, CancellationToken token) =>
+app.MapPost("/api/lyrics", async (HttpRequest request, MusicPlayers player, LyricsCatalog catalog, CancellationToken token) =>
 {
     var form = await request.ReadFormAsync(token);
     var file = form.Files.GetFile("file");
-    var current = player.Read().Song;
-    if (current == null || current.Id != form["song"].ToString())
+    var (musicSource, state) = player.Selected();
+    var current = state.Song;
+    if (current == null || current.Id != form["song"].ToString() ||
+        form.TryGetValue("source", out var source) && musicSource != source.ToString())
         return Error("歌曲已切换。请确认正在播放的歌曲后重试。", 409);
     if (file == null || file.Length == 0 || file.Length > 256 * 1024)
         return Error("请选择 256 KB 以内的 LRC 或 TTML 文件。");
@@ -366,4 +392,5 @@ static async Task<(ImageBytes? Image, string? Error)> ReadUploadedImage(HttpRequ
 static IResult Error(string message, int code = 400) =>
     Results.Text(message, "text/plain; charset=utf-8", statusCode: code);
 
-sealed record OffsetRequest(string Song, int OffsetMs, int? AtMs = null, string? TimingId = null);
+sealed record MusicSourceRequest(string Source);
+sealed record OffsetRequest(string Song, int OffsetMs, int? AtMs = null, string? TimingId = null, string? Source = null);

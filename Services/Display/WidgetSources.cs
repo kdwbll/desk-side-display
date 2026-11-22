@@ -154,8 +154,8 @@ sealed class WidgetSources : IDisposable
             .ToDictionary(StringComparer.Ordinal);
     }
 
-    public async Task<string?> Act(WidgetAction action, AppleMusic music, KeyboardShortcut keyboard, uint? clipboardVersion,
-        string? historyItem, CancellationToken token)
+    public async Task<string?> Act(WidgetAction action, MusicPlayers music, KeyboardShortcut keyboard, uint? clipboardVersion,
+        string? historyItem, string? musicSource, CancellationToken token)
     {
         WidgetSourceConfig options;
         lock (gate)
@@ -182,7 +182,7 @@ sealed class WidgetSources : IDisposable
         if (action.Type == "copy")
             return await WidgetWindows.Copy(action.Value!) ? null : "Windows 剪贴板暂不可用。";
         if (action.Type.StartsWith("music.", StringComparison.Ordinal))
-            return await music.ControlAsync(action.Type[6..]) ? null : "Apple Music 暂不可控制。";
+            return await music.ControlAsync(action.Type[6..], musicSource, token);
         if (action.Type == "open-app" && options.Apps?.TryGetValue(action.Value!, out var executable) == true)
         {
             try

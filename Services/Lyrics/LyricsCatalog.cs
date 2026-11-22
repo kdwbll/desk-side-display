@@ -15,7 +15,7 @@ using YamlDotNet.RepresentationModel;
 sealed record LyricWord(long AtMs, long EndMs, string Text);
 sealed record LyricLine(long AtMs, string Text, long? EndMs = null, LyricWord[]? Words = null);
 sealed record LyricTimingPoint(int AtMs, int OffsetMs);
-sealed record Lyrics(string Status, LyricLine[] Lines, string? TimingId = null);
+sealed record Lyrics(string Status, LyricLine[] Lines, string? TimingId = null, double? DurationMs = null);
 sealed record LyricCalibration(int Offset, LyricTimingPoint[] Points);
 sealed record RemoteLyrics(bool Instrumental, string? SyncedLyrics, double? Duration, bool HasWordSync,
     string? Lyricsfile, string? TrackName, string? ArtistName, string? AlbumName);
@@ -27,7 +27,7 @@ sealed record AmllSong(long Id, string[] MusicNames, string[] ArtistNames, strin
 
 sealed partial class LyricsCatalog
 {
-    public const int DefaultLeadMs = 1300;
+    public static int DefaultLeadMs(string? musicSource) => musicSource == MusicPlayers.Netease ? 0 : 1300;
     private static readonly HttpClient http = new() { Timeout = TimeSpan.FromSeconds(8) };
     private readonly string directory;
     private readonly string offsetsFile;
@@ -64,42 +64,49 @@ sealed partial class LyricsCatalog
         http.DefaultRequestHeaders.UserAgent.ParseAdd("DeskSideDisplay/0.1");
     }
 
-    public LyricCalibration ReadCalibration(Song? song, Lyrics source)
+    public LyricCalibration ReadCalibration(Song? song, Lyrics source, string? musicSource)
     {
         if (song == null) return new(0, []);
         lock (offsetLock)
         {
-            var key = CalibrationKey(song, source);
+            var trackKey = CalibrationTrackKey(song, musicSource);
+            var key = CalibrationKey(song, source, musicSource);
             var legacy = !source.Lines.Any(line => line.Words is { Length: > 0 });
             var offset = offsets.TryGetValue(key, out var value) ? value
-                : legacy ? offsets.GetValueOrDefault(song.Id, DefaultLeadMs) : DefaultLeadMs;
+                : legacy ? offsets.GetValueOrDefault(trackKey, DefaultLeadMs(musicSource)) : DefaultLeadMs(musicSource);
             var points = timingPoints.GetValueOrDefault(key)
-                ?? (legacy ? timingPoints.GetValueOrDefault(song.Id) : null) ?? [];
+                ?? (legacy ? timingPoints.GetValueOrDefault(trackKey) : null) ?? [];
             return new(offset, points);
         }
     }
 
-    private static string CalibrationKey(Song song, Lyrics source) =>
-        source.TimingId == null ? song.Id : song.Id + ":" + source.TimingId;
+    private static string CalibrationTrackKey(Song song, string? musicSource) =>
+        musicSource == MusicPlayers.Netease ? "netease:" + song.Id : song.Id;
 
-    public void SetOffset(Song song, Lyrics source, int offset)
+    private static string CalibrationKey(Song song, Lyrics source, string? musicSource)
+    {
+        var trackKey = CalibrationTrackKey(song, musicSource);
+        return source.TimingId == null ? trackKey : trackKey + ":" + source.TimingId;
+    }
+
+    public void SetOffset(Song song, Lyrics source, string? musicSource, int offset)
     {
         lock (offsetLock)
         {
             var updated = new Dictionary<string, int>(offsets);
-            updated[CalibrationKey(song, source)] = offset;
+            updated[CalibrationKey(song, source, musicSource)] = offset;
             PanelSettings.Save(offsetsFile, JsonSerializer.SerializeToUtf8Bytes(updated));
             offsets.Clear();
             foreach (var pair in updated) offsets.Add(pair.Key, pair.Value);
         }
     }
 
-    public bool SetTimingPoint(Song song, Lyrics source, LyricTimingPoint point, int durationMs)
+    public bool SetTimingPoint(Song song, Lyrics source, string? musicSource, LyricTimingPoint point, int durationMs)
     {
         if (point.AtMs < 250 || point.AtMs > durationMs - 250) return false;
         lock (offsetLock)
         {
-            var existing = ReadCalibration(song, source).Points;
+            var existing = ReadCalibration(song, source, musicSource).Points;
             var updated = existing.Where(other => other.AtMs != point.AtMs)
                 .Append(point).Where(other => other.OffsetMs != 0).OrderBy(other => other.AtMs).ToArray();
             if (updated.Length > 64) return false;
@@ -113,7 +120,7 @@ sealed partial class LyricsCatalog
             }
             var saved = new Dictionary<string, LyricTimingPoint[]>(timingPoints)
             {
-                [CalibrationKey(song, source)] = updated
+                [CalibrationKey(song, source, musicSource)] = updated
             };
             PanelSettings.Save(timingPointsFile, JsonSerializer.SerializeToUtf8Bytes(saved));
             timingPoints = saved;
@@ -121,7 +128,7 @@ sealed partial class LyricsCatalog
         }
     }
 
-    public Lyrics Read(Song? song, double? durationMs)
+    public Lyrics Read(Song? song, double? durationMs, bool allowNeteaseText = false)
     {
         if (song == null) return new("waiting", []);
         var saved = local.GetOrAdd(song.Id, id =>
@@ -132,8 +139,12 @@ sealed partial class LyricsCatalog
             var contents = File.ReadAllText(path);
             return TimedLyrics("local", ParseFile(contents), contents);
         });
-        if (saved.Lines.Length > 0) return saved;
-        if (durationMs is not > 0 || string.IsNullOrWhiteSpace(song.Artist)) return new("metadata-incomplete", []);
+        if (saved.Lines.Length > 0)
+            return allowNeteaseText && durationMs is not > 0 && !string.IsNullOrWhiteSpace(song.Artist)
+                ? saved with { DurationMs = ReadNeteaseText(song).DurationMs } : saved;
+        if (string.IsNullOrWhiteSpace(song.Artist)) return new("metadata-incomplete", []);
+        if (durationMs is not > 0)
+            return allowNeteaseText ? ReadNeteaseText(song) : new("metadata-incomplete", []);
         if (FindPreparedTiming(song, durationMs.Value) is Lyrics preparedTiming) return preparedTiming;
 
         var seconds = (int)Math.Round(durationMs.Value / 1000);
@@ -172,6 +183,23 @@ sealed partial class LyricsCatalog
             return new("searching", []);
         }
         return primary;
+    }
+
+    private Lyrics ReadNeteaseText(Song song)
+    {
+        var key = song.Id + ":text";
+        var task = netease.GetOrAdd(key, _ => new Lazy<Task<Lyrics?>>(() => LookupNeteaseAsync(song, null))).Value;
+        if (!task.IsCompleted) return new("searching", []);
+        if (task.IsCompletedSuccessfully && task.Result is Lyrics found) return found;
+
+        var now = DateTimeOffset.UtcNow;
+        var retry = retryAt.GetOrAdd(key, now.AddSeconds(60));
+        if (now >= retry && retryAt.TryUpdate(key, now.AddSeconds(60), retry))
+        {
+            netease.TryRemove(key, out _);
+            return new("searching", []);
+        }
+        return new("missing", []);
     }
 
     public bool SetLocal(Song song, string contents)

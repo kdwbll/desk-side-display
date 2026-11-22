@@ -37,7 +37,7 @@
         <a href="#display">手机显示</a>
         <a href="#pages">界面与小组件</a>
         <a href="#appearance">歌词外观</a>
-        <a href="#music">Apple Music</a>
+        <a href="#music">音乐播放</a>
       </nav>
       <p class="connection-address">手机浏览器地址 <code>http://127.0.0.1:8765/</code></p>
     </aside>
@@ -178,11 +178,20 @@
       <p id="appearance-status" class="detail" role="status"></p>
     </section>
     <section id="music" aria-labelledby="music-heading">
-      <h2 id="music-heading">Apple Music</h2>
+      <h2 id="music-heading">音乐播放</h2>
+      <div class="actions playback-source">
+        <label for="music-source">播放源</label>
+        <select id="music-source" disabled>
+          <option value="auto">自动</option>
+          <option value="apple">Apple Music</option>
+          <option value="netease">网易云音乐</option>
+        </select>
+        <span class="detail" id="music-source-status" role="status"></span>
+      </div>
       <div class="playback-track">
         <img id="control-cover" alt="" hidden>
         <div>
-          <p class="song" id="song">等待 Apple Music 播放</p>
+          <p class="song" id="song">等待 Windows 播放器</p>
           <p class="detail" id="timeline"></p>
         </div>
       </div>

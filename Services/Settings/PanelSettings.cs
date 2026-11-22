@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 
-sealed record PanelPreferences(string Mode, string Idle);
+sealed record PanelPreferences(string Mode, string Idle, string MusicSource = MusicPlayers.Auto);
 
 sealed class PanelSettings
 {
@@ -43,11 +43,24 @@ sealed class PanelSettings
         if (!Valid(next)) return false;
         lock (gate)
         {
+            next = next with { MusicSource = preferences.MusicSource };
             Save(preferenceFile, JsonSerializer.SerializeToUtf8Bytes(next));
             preferences = next;
             displayRevision++;
         }
         return true;
+    }
+
+    public bool SetMusicSource(string source)
+    {
+        if (source is not (MusicPlayers.Auto or MusicPlayers.Apple or MusicPlayers.Netease)) return false;
+        lock (gate)
+        {
+            var next = preferences with { MusicSource = source };
+            Save(preferenceFile, JsonSerializer.SerializeToUtf8Bytes(next));
+            preferences = next;
+            return true;
+        }
     }
 
     public void SetWallpaper(ImageBytes image)
@@ -60,7 +73,8 @@ sealed class PanelSettings
     }
 
     private static bool Valid(PanelPreferences value) =>
-        value.Mode is "auto" or "lyrics" or "clock" or "photo" && value.Idle is "clock" or "photo" or "hardware";
+        value.Mode is "auto" or "lyrics" or "clock" or "photo" && value.Idle is "clock" or "photo" or "hardware" &&
+        value.MusicSource is MusicPlayers.Auto or MusicPlayers.Apple or MusicPlayers.Netease;
 
     public static void Save(string destination, byte[] bytes)
     {
