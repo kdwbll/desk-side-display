@@ -22,6 +22,7 @@ main:has(#page-backdrop > .album-flow:not([hidden])) #wallpaper { padding: 2.5cq
 #dashboard-widgets:has(.widget-v2, .widget-music), #page-widgets:has(.widget-v2, .widget-music) { grid-auto-rows: max-content; }
 #dashboard-widgets, #page-widgets { touch-action: pan-y; }
 .clipboard-page #dashboard-widgets { overflow: visible; }
+.widget-v2-history-list { user-select: none; }
 #dashboard-empty { margin: auto; }
 #page-widgets {
   flex-shrink: 0;
