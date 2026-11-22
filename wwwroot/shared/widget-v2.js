@@ -333,12 +333,14 @@ window.widgetV2 = (() => {
     if (entry.kind === 'image') {
       const image = node('img', 'widget-v2-history-image');
       image.alt = '剪贴板图片';
+      image.draggable = false;
       content.append(setMedia(image, entry.image) ? image : node('span', '', '剪贴板图片'));
     } else if (entry.kind === 'files') {
       for (const file of (entry.files ?? []).slice(0, 6)) {
         const item = node('span', 'widget-v2-history-file');
         const image = node('img');
         image.alt = '';
+        image.draggable = false;
         item.append(setMedia(image, file.icon) ? image : node('span', '', icons.file));
         item.append(node('span', '', short(file.name ?? '文件', 100)));
         content.append(item);
