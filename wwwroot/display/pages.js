@@ -217,7 +217,9 @@ const phonePages = (() => {
   async function runAction(widget, trigger, parameters) {
     if (!capability || !actionsEnabled) return;
     try {
-      const query = parameters ? '?' + new URLSearchParams(parameters) : '';
+      const search = new URLSearchParams(parameters);
+      if (state?.musicSource) search.set('source', state.musicSource);
+      const query = search.size ? '?' + search : '';
       const response = await fetch('/api/widgets/' + widget.id + '/action/' + trigger + query, {
         method: 'POST', headers: { 'X-DeskSide-Shortcut': capability },
         signal: AbortSignal.timeout(3500)
@@ -234,7 +236,8 @@ const phonePages = (() => {
   async function controlMusic(widget, action) {
     if (!capability || !actionsEnabled) return;
     try {
-      const response = await fetch('/api/widgets/' + widget.id + '/media/' + action, {
+      const query = state?.musicSource ? '?source=' + encodeURIComponent(state.musicSource) : '';
+      const response = await fetch('/api/widgets/' + widget.id + '/media/' + action + query, {
         method: 'POST', headers: { 'X-DeskSide-Shortcut': capability }, signal: AbortSignal.timeout(3500)
       });
       if (!response.ok) {

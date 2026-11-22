@@ -4,7 +4,6 @@ using System.Text;
 using Windows.Media.Control;
 using Windows.Storage.Streams;
 
-using MediaManager = Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager;
 using MediaSession = Windows.Media.Control.GlobalSystemMediaTransportControlsSession;
 using PlaybackStatus = Windows.Media.Control.GlobalSystemMediaTransportControlsSessionPlaybackStatus;
 
@@ -38,11 +37,12 @@ sealed record MusicState(
     bool CanToggle = false,
     bool CanPrevious = false,
     bool CanNext = false,
-    ImageBytes? Artwork = null);
+    ImageBytes? Artwork = null,
+    MediaSession? Session = null,
+    double? EstimatedPositionMs = null);
 
-sealed class AppleMusic(ILogger<AppleMusic> logger) : BackgroundService
+sealed class MusicSession(string source, ILogger<MusicPlayers> logger)
 {
-    private MediaManager? manager;
     private MusicState state = new();
     private DateTimeOffset nextArtworkRead;
     private Task<ImageBytes?>? pendingArtwork;
@@ -53,44 +53,26 @@ sealed class AppleMusic(ILogger<AppleMusic> logger) : BackgroundService
     private (DateTimeOffset Updated, TimeSpan Position, TimeSpan End) lastTimeline;
     private (DateTimeOffset Updated, TimeSpan Position, TimeSpan End)? previousSongTimeline;
 
-    public MusicState Read() => Volatile.Read(ref state);
-
-    private static MediaSession? FindSession(MediaManager? current) => current?.GetSessions()
-        .FirstOrDefault(session => session.SourceAppUserModelId.StartsWith("AppleInc.AppleMusicWin_", StringComparison.OrdinalIgnoreCase));
-
-    protected override async Task ExecuteAsync(CancellationToken token)
+    public async Task<MusicState> SampleAsync(MediaSession? session, CancellationToken token)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(180));
-        do
+        if (session == null) return state = new MusicState();
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
+        deadline.CancelAfter(TimeSpan.FromMilliseconds(700));
+        try
         {
-            try
-            {
-                var activeManager = Volatile.Read(ref manager);
-                if (activeManager == null)
-                {
-                    activeManager = await MediaManager.RequestAsync();
-                    Volatile.Write(ref manager, activeManager);
-                }
-                await SampleAsync(FindSession(activeManager), token);
-            }
-            catch (Exception error) when (!token.IsCancellationRequested)
-            {
-                if (Read().Status != "error") logger.LogWarning(error, "Could not read the Apple Music session");
-                Volatile.Write(ref state, new MusicState(Status: "error"));
-                Volatile.Write(ref manager, null);
-            }
-        } while (await timer.WaitForNextTickAsync(token));
+            var media = await session.TryGetMediaPropertiesAsync().AsTask(deadline.Token);
+            return Sample(session, media, token);
+        }
+        catch (Exception error) when (!token.IsCancellationRequested)
+        {
+            if (state.Status != "error") logger.LogWarning(error, "Could not read the {Source} session", source);
+            return state = new MusicState(Status: "error");
+        }
     }
 
-    private async Task SampleAsync(MediaSession? session, CancellationToken token)
+    private MusicState Sample(MediaSession session, GlobalSystemMediaTransportControlsSessionMediaProperties? media,
+        CancellationToken token)
     {
-        if (session == null)
-        {
-            Volatile.Write(ref state, new MusicState());
-            return;
-        }
-
-        var media = await session.TryGetMediaPropertiesAsync();
         var playback = session.GetPlaybackInfo();
         var timeline = session.GetTimelineProperties();
         var sampledAt = Stopwatch.GetTimestamp();
@@ -100,7 +82,7 @@ sealed class AppleMusic(ILogger<AppleMusic> logger) : BackgroundService
         var rate = playback.PlaybackRate is > 0 and <= 8 ? playback.PlaybackRate.Value : 1;
         var hasSong = !string.IsNullOrWhiteSpace(media?.Title);
         var song = hasSong ? Song.Create(media!.Title, media.Artist ?? "", media.AlbumTitle ?? "") : null;
-        var previous = Read();
+        var previous = state;
         var sameSong = song != null && previous.Song == song;
         var timelineKey = (timeline.LastUpdatedTime, timeline.Position, timeline.EndTime);
         if (!sameSong && song != null && previous.Song != null)
@@ -110,7 +92,9 @@ sealed class AppleMusic(ILogger<AppleMusic> logger) : BackgroundService
         lastTimeline = timelineKey;
         var duration = (timeline.EndTime - timeline.StartTime).TotalMilliseconds;
         var rawPosition = Math.Max(0, (timeline.Position - timeline.StartTime).TotalMilliseconds);
-        var validTimeline = song != null && previousSongTimeline == null && (duration > 0 || rawPosition > 0);
+        var validTrackTimeline = song != null && previousSongTimeline == null;
+        var validTimeline = validTrackTimeline && (rawPosition > 0 ||
+            duration > 0 && (source != MusicPlayers.Netease || timeline.LastUpdatedTime > DateTimeOffset.UnixEpoch));
         var elapsed = (now - timeline.LastUpdatedTime).TotalMilliseconds;
         // A moving timeline is anchored at the timestamp published by the player.
         var position = rawPosition +
@@ -118,7 +102,12 @@ sealed class AppleMusic(ILogger<AppleMusic> logger) : BackgroundService
                 ? elapsed * rate : 0);
         var controls = playback.Controls;
         var artwork = PollArtwork(song, sameSong ? previous.Artwork : null, media?.Thumbnail, now, token);
-        Volatile.Write(ref state, new MusicState(
+        var estimated = sameSong
+            ? (previous.PositionMs ?? previous.EstimatedPositionMs ?? 0) +
+              (previous.Playing ? Stopwatch.GetElapsedTime(previous.SampledAt, sampledAt).TotalMilliseconds *
+                  (previous.PositionMs == null ? 1 : previous.Rate) : 0)
+            : 0;
+        return state = new MusicState(
             Status: hasSong ? "ready" : "no-track",
             Song: song,
             Playing: playing,
@@ -126,12 +115,14 @@ sealed class AppleMusic(ILogger<AppleMusic> logger) : BackgroundService
             LastPlaying: playing ? now : sameSong ? previous.LastPlaying : default,
             SampledAt: sampledAt,
             PositionMs: validTimeline ? Math.Min(position, duration > 0 ? duration : double.MaxValue) : null,
-            DurationMs: duration > 0 && validTimeline ? duration : null,
+            DurationMs: duration > 0 && validTrackTimeline ? duration : null,
             Rate: rate,
             CanToggle: controls.IsPlayPauseToggleEnabled || (playing ? controls.IsPauseEnabled : controls.IsPlayEnabled),
             CanPrevious: controls.IsPreviousEnabled,
             CanNext: controls.IsNextEnabled,
-            Artwork: artwork));
+            Artwork: artwork,
+            Session: session,
+            EstimatedPositionMs: source == MusicPlayers.Netease && song != null ? estimated : null);
     }
 
     private ImageBytes? PollArtwork(Song? song, ImageBytes? artwork, IRandomAccessStreamReference? thumbnail,
@@ -187,23 +178,4 @@ sealed class AppleMusic(ILogger<AppleMusic> logger) : BackgroundService
         }
     }
 
-    public async Task<bool> ControlAsync(string action)
-    {
-        try
-        {
-            var session = FindSession(Volatile.Read(ref manager));
-            if (session == null) return false;
-            if (action == "previous") return await session.TrySkipPreviousAsync();
-            if (action == "next") return await session.TrySkipNextAsync();
-            var info = session.GetPlaybackInfo();
-            if (info.Controls.IsPlayPauseToggleEnabled && await session.TryTogglePlayPauseAsync()) return true;
-            return info.PlaybackStatus == PlaybackStatus.Playing
-                ? await session.TryPauseAsync() : await session.TryPlayAsync();
-        }
-        catch (Exception error)
-        {
-            logger.LogDebug(error, "Could not control the Apple Music session");
-            return false;
-        }
-    }
 }

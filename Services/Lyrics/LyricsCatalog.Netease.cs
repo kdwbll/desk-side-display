@@ -13,7 +13,7 @@ sealed record NeteaseLyrics(NeteaseLyric? Yrc, NeteaseLyric? Lrc);
 
 sealed partial class LyricsCatalog
 {
-    private static async Task<Lyrics?> LookupNeteaseAsync(Song song, double durationMs)
+    private static async Task<Lyrics?> LookupNeteaseAsync(Song song, double? durationMs)
     {
         const string url = "https://music.163.com/api/";
         var query = Uri.EscapeDataString(ToChineseVariant(song.Title + " " + song.Artist, VbStrConv.SimplifiedChinese));
@@ -24,35 +24,40 @@ sealed partial class LyricsCatalog
         {
             var search = await http.GetFromJsonAsync<NeteaseResponse>($"{url}cloudsearch/pc?s={query}&type=1&limit=16");
             var candidates = (search?.Result?.Songs ?? []).Where(item =>
-                item.Id > 0 && Math.Abs(item.Dt - durationMs) <= 2300 &&
+                item.Id > 0 && item.Dt > 0 && (durationMs == null || Math.Abs(item.Dt - durationMs.Value) <= 2300) &&
                 SearchKey(item.Name) == title && MatchesNeteaseArtist(item.Ar, artist)).ToArray();
             var sameAlbum = candidates.Where(item => album.Length != 0 && AlbumKey(item.Al?.Name) == album).ToArray();
             var sameRecording = candidates.Where(item =>
-                Math.Abs(item.Dt - durationMs) <= 1250 && !VersionQualifier().IsMatch(item.Al?.Name ?? "")).ToArray();
+                (durationMs == null || Math.Abs(item.Dt - durationMs.Value) <= 1250) &&
+                !VersionQualifier().IsMatch(item.Al?.Name ?? "")).ToArray();
             // Prefer the same release. A reissue is usable when matches agree on one studio recording length.
-            var accepted = sameAlbum.Length != 0 ? sameAlbum : sameRecording.Length != 0 &&
-                sameRecording.Max(item => item.Dt) - sameRecording.Min(item => item.Dt) <= 250 ? sameRecording : [];
+            var accepted = sameAlbum.Length != 0 && (durationMs != null || AgreeOnDuration(sameAlbum))
+                ? sameAlbum : AgreeOnDuration(sameRecording) ? sameRecording : [];
             Lyrics? lineFallback = null;
-            foreach (var track in accepted.OrderBy(item => Math.Abs(item.Dt - durationMs)).Take(3))
+            foreach (var track in accepted.OrderBy(item => Math.Abs(item.Dt - (durationMs ?? item.Dt))).Take(3))
             {
                 var result = await http.GetFromJsonAsync<NeteaseLyrics>(
                     $"{url}song/lyric/v1?id={track.Id}&lv=0&kv=0&tv=0&yv=0&ytv=0&yrv=0");
                 if (result?.Yrc?.Lyric is { Length: > 0 and <= 262144 } yrc)
                 {
                     var lines = ParseYrc(yrc);
-                    if (lines.Length > 0) return TimedLyrics("word-netease", lines, yrc);
+                    if (lines.Length > 0) return TimedLyrics("word-netease", lines, yrc) with { DurationMs = track.Dt };
                 }
                 if (lineFallback == null && result?.Lrc?.Lyric is { Length: > 0 and <= 262144 } lrc &&
                     Parse(lrc) is { Length: > 0 } lineSynced)
-                    lineFallback = TimedLyrics("line-netease", lineSynced, lrc);
+                    lineFallback = TimedLyrics("line-netease", lineSynced, lrc) with { DurationMs = track.Dt };
             }
-            return lineFallback;
+            return lineFallback ?? (durationMs == null && accepted.Length > 0
+                ? new Lyrics("missing", [], DurationMs: accepted[0].Dt) : null);
         }
         catch (Exception error) when (error is HttpRequestException or OperationCanceledException or JsonException)
         {
             return null;
         }
     }
+
+    private static bool AgreeOnDuration(NeteaseTrack[] tracks) =>
+        tracks.Length != 0 && tracks.Max(item => item.Dt) - tracks.Min(item => item.Dt) <= 250;
 
     private static bool MatchesNeteaseArtist(NeteaseName[]? names, string artist)
     {

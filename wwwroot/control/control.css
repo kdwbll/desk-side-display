@@ -116,6 +116,7 @@ main > section {
 .appearance-presets input, .appearance-presets select { flex: 1 1 156px; min-width: 0; max-width: 100%; }
 #appearance-status { margin: 8px 0 0; }
 #appearance-status:empty { display: none; }
+.playback-source { margin-bottom: 14px; }
 .playback-track { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
 #control-cover { width: 48px; height: 48px; object-fit: cover; border-radius: 8px; }
 #timeline { margin-bottom: 0; }

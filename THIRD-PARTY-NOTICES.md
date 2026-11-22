@@ -11,6 +11,8 @@
 
 ## 开源项目参考
 
+网易云音乐可通过独立安装的 [BetterNCM](https://github.com/std-microblock/chromatic) 与 [InfLink-rs](https://github.com/apoint123/inflink-rs) 向 Windows 提供媒体时间轴。副屏使用 Windows SMTC 接口读取。两项组件均由 GPL-3.0 上游项目独立分发。
+
 - PhoneBox 用于参考 USB 连接与手机端面板的设计。上游许可证为 MIT。 [PhoneBox 许可证](https://github.com/ersinkoc/phonebox/blob/main/LICENSE)
 - BetterLyrics 用于参考 Windows 媒体会话与歌词匹配的设计。上游许可证为 GPL-3.0。 [BetterLyrics 许可证](https://github.com/jayfunc/BetterLyrics/blob/dev/LICENSE)
 - Kotonoha 用于参考在播放位置采样之间用本地时钟推进歌词的设计。 [Kotonoha 播放时钟协议](https://github.com/locez/kotonoha/blob/main/plugins/README.md#clock)
