@@ -1,6 +1,11 @@
 'use strict';
 
 const usb = document.getElementById('usb');
+const usbSetup = document.getElementById('usb-setup');
+const adbSetup = document.getElementById('adb-setup');
+const installAdb = document.getElementById('install-adb');
+const exitDisplay = document.getElementById('exit-display');
+const usbSetupMessage = document.getElementById('usb-setup-message');
 const playbackCover = document.getElementById('control-cover');
 playbackCover.addEventListener('load', () => { playbackCover.hidden = false; });
 playbackCover.addEventListener('error', () => { playbackCover.hidden = true; });
@@ -68,6 +73,8 @@ function durationText(milliseconds) {
 
 function render() {
   const status = state?.control;
+  usbSetup.hidden = !status?.standalone;
+  adbSetup.hidden = status?.usb !== 'tools-missing';
   if (!status) {
     usb.dataset.connected = 'false';
     modes.forEach(button => { button.disabled = true; });
@@ -177,10 +184,10 @@ async function poll() {
   }
 }
 
-async function send(path, body) {
+async function send(path, body, timeoutMs = 8000) {
   const headers = { 'X-DeskSide-Control': '1' };
   if (typeof body === 'string') headers['Content-Type'] = 'application/json';
-  const response = await fetch(path, { method: 'POST', headers, body, signal: AbortSignal.timeout(8000) });
+  const response = await fetch(path, { method: 'POST', headers, body, signal: AbortSignal.timeout(timeoutMs) });
   if (!response.ok) {
     const type = response.headers.get('Content-Type') ?? '';
     const reason = type.startsWith('text/plain') ? await response.text() : '';
@@ -188,6 +195,35 @@ async function send(path, body) {
   }
   if (response.status !== 204) return response.json();
 }
+
+function showUsbSetupMessage(text) {
+  usbSetupMessage.textContent = text;
+  usbSetupMessage.hidden = !text;
+}
+
+installAdb.addEventListener('click', async () => {
+  installAdb.disabled = true;
+  showUsbSetupMessage('正在从 Android 官网下载 USB 工具…');
+  try {
+    await send('/api/usb/install', undefined, 95_000);
+    showUsbSetupMessage('USB 工具已就绪，请连接并解锁手机。');
+  } catch (error) {
+    showUsbSetupMessage(error.message);
+  } finally {
+    installAdb.disabled = false;
+  }
+});
+
+exitDisplay.addEventListener('click', async () => {
+  exitDisplay.disabled = true;
+  try {
+    await send('/api/exit');
+    location.replace('about:blank');
+  } catch (error) {
+    showUsbSetupMessage(error.message);
+    exitDisplay.disabled = false;
+  }
+});
 
 async function act(callback) {
   if (busy || !state?.control) return;

@@ -65,6 +65,10 @@ main {
 .console-rail a[aria-current="location"] { background: var(--selection); color: var(--selected); font-weight: 600; }
 .connection-address { margin-top: 24px; padding: 12px; border-top: 1px solid var(--line); }
 .connection-address code { display: block; margin-top: 4px; color: var(--text); overflow-wrap: anywhere; }
+.usb-setup { display: grid; gap: 4px; padding: 0 12px; color: var(--quiet); font-size: 13px; }
+.usb-setup > div { display: grid; gap: 4px; margin-bottom: 8px; }
+.usb-setup a { padding: 4px 0; }
+.usb-setup button { justify-self: start; margin-top: 4px; }
 h1, h2, h3, p { margin: 0; }
 h1 { font-size: 28px; line-height: 1.2; font-weight: 600; }
 h2 { font-size: 18px; line-height: 1.35; font-weight: 600; margin-bottom: 12px; }

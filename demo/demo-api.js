@@ -1,6 +1,7 @@
 import { appearancePresets, defaultAppearance, initialLayout, metrics, samples, tracks } from './demo-data.js';
 
 const durationMs = 31600;
+const defaultOffset = 0;
 const allowedImages = {
   image: ['image/jpeg', 'image/png', 'image/webp'],
   gif: ['image/gif']
@@ -123,7 +124,6 @@ export async function createDemo(notify) {
     const track = currentTrack();
     const imported = imports.get(track?.id);
     const calibrationKey = source + ':' + track?.id;
-    const defaultOffset = source === 'netease' ? 0 : 1300;
     const availablePresets = layout.pages.filter(page => page.kind === 'clock' || page.kind === 'photo').map(page => page.id);
     const idle = ['hardware', ...availablePresets].includes(preferences.idle)
       ? preferences.idle : availablePresets[0] ?? 'hardware';

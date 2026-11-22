@@ -46,11 +46,10 @@
 
 ## 快速开始
 
-1. 解压 [GitHub Releases](https://github.com/kdwbll/desk-side-display/releases/latest) 中的 `win-x64.zip` 发布包。发布包内置 .NET 运行时。从源码启动时需安装 [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)。
-2. 从 Android 官网下载 Windows 版 [SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools)，将解压后的 `platform-tools` 文件夹放在程序目录的 `.tools` 文件夹内，确认路径为 `.tools\platform-tools\adb.exe`。需要歌词时，在电脑安装 Apple Music 或网易云音乐桌面客户端。
-3. 双击 [Create-Desktop-Shortcut.cmd](Create-Desktop-Shortcut.cmd)，在 Windows 桌面创建「桌面副屏」。以后双击这个图标就能打开控制面板。也可以直接运行 [Start-DeskSideDisplay.cmd](Start-DeskSideDisplay.cmd)。
-4. 在安卓手机上开启 USB 调试，通过支持数据传输的 USB 线连上电脑，并在手机上允许调试。
-5. 控制面板显示「USB 已连接」后，用**手机浏览器**访问 `http://127.0.0.1:8765/`。把手机横放，轻点页面进入全屏。可在 Windows 播歌查看歌词，也可在「界面与小组件」添加卡片及全屏预设。
+1. 从 [GitHub Releases](https://github.com/kdwbll/desk-side-display/releases/latest) 下载 `DeskSideDisplay-win-x64.exe`，双击打开控制面板。EXE 已内置运行时，无需解压或安装 .NET。
+2. 首次使用时，若面板提示缺少 Android USB 工具，阅读协议后点击「同意协议并下载」。手机开启 USB 调试，用数据线连上电脑，并在手机弹窗点「允许」。
+3. USB 连接后副屏会尝试自动打开手机浏览器。把手机横放，轻点画面进入全屏。若浏览器没有自动打开，在手机访问 `http://127.0.0.1:8765/`。
+4. 日常使用双击 EXE，再插上已授权的手机即可。电脑播放 Apple Music 或网易云音乐时可显示同步歌词，平时可切换时钟、相框或小组件页面。
 
 首次配置、歌词匹配和排查步骤见[详细使用说明](使用说明.md)。
 
@@ -71,7 +70,7 @@
 | `docs/screenshots/` | 手机实拍与控制面板的演示截图 |
 | `demo/` | GitHub Pages 在线体验和静态构建脚本 |
 
-本机设置、相框、卡片媒体和歌词保存在 `.data/`，ADB 工具放在 `.tools/`。这些目录由 Git 忽略。
+EXE 默认把本机数据和下载的 USB 工具保存在 `%LOCALAPPDATA%\DeskSideDisplay`。源码版使用仓库内的 `.data/` 和 `.tools/`，这两个目录由 Git 忽略。
 
 ## 许可与贡献
 
