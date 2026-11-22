@@ -8,6 +8,20 @@ const int controlPort = 8766;
 const string controlUrl = "http://127.0.0.1:8766";
 const int maxPhotoBytes = 8 * 1024 * 1024;
 const int maxLyricOffsetMs = 10_000;
+#if DESKSIDE_SINGLE_FILE
+var packaged = true;
+#else
+var packaged = false;
+#endif
+var openControl = packaged || args.Contains("--open-control");
+if (packaged && await OpenExistingControlAsync()) return;
+
+var project = packaged ? AppContext.BaseDirectory : Directory.GetCurrentDirectory();
+var installRoot = packaged ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DeskSideDisplay") : null;
+var nearbyData = Path.Combine(project, ".data");
+var data = installRoot is not null && !Directory.Exists(nearbyData) ? Path.Combine(installRoot, "data") : nearbyData;
+using var adbDownload = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false });
+var androidTools = new AndroidTools(project, installRoot, adbDownload);
 var shortcutCapability = Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
@@ -16,14 +30,13 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     Args = args.Where(arg => arg != "--open-control").ToArray()
 });
 builder.Logging.AddFilter("Microsoft.AspNetCore", LogLevel.Warning);
-var project = Directory.GetCurrentDirectory();
 builder.WebHost.ConfigureKestrel(options =>
 {
     options.Listen(IPAddress.Loopback, displayPort);
     options.Listen(IPAddress.Loopback, controlPort);
     options.Limits.MaxRequestBodySize = maxPhotoBytes + 64 * 1024;
 });
-builder.Services.AddSingleton(new PanelSettings(Path.Combine(project, ".data")));
+builder.Services.AddSingleton(new PanelSettings(data));
 builder.Services.AddSingleton(service => new LyricAppearanceSettings(service.GetRequiredService<PanelSettings>().DataPath));
 builder.Services.AddSingleton(service => new LyricsCatalog(service.GetRequiredService<PanelSettings>().DataPath));
 builder.Services.AddSingleton(service => new DisplayPages(service.GetRequiredService<PanelSettings>().DataPath));
@@ -37,7 +50,8 @@ builder.Services.AddSingleton(new DesktopNotes(Environment.GetFolderPath(Environ
 builder.Services.AddSingleton<HardwareMetrics>();
 builder.Services.AddSingleton<MusicPlayers>();
 builder.Services.AddHostedService(service => service.GetRequiredService<MusicPlayers>());
-builder.Services.AddSingleton(new UsbBridge(Path.Combine(project, ".tools", "platform-tools", "adb.exe"), displayPort));
+builder.Services.AddSingleton(service => new UsbBridge(androidTools, displayPort, packaged,
+    service.GetRequiredService<IHostApplicationLifetime>()));
 builder.Services.AddHostedService(service => service.GetRequiredService<UsbBridge>());
 
 var app = builder.Build();
@@ -76,13 +90,45 @@ app.Use(async (context, next) =>
         "default-src 'self'; img-src 'self' blob: data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
     await next(context);
 });
-app.UseStaticFiles();
+var webFiles = packaged ? new EmbeddedWebFiles() : app.Environment.WebRootFileProvider;
+app.UseStaticFiles(new StaticFileOptions { FileProvider = webFiles });
 
 app.MapGet("/", (HttpContext context) =>
 {
     var page = context.Connection.LocalPort == controlPort ? "control" : "display";
-    return Results.File(Path.Combine(app.Environment.WebRootPath, page, "index.html"), "text/html; charset=utf-8");
+    var file = webFiles.GetFileInfo($"{page}/index.html");
+    return file.Exists ? Results.Stream(file.CreateReadStream(), "text/html; charset=utf-8") : Results.NotFound();
 });
+
+if (packaged)
+{
+    app.MapPost("/api/usb/install", async (HttpContext context) =>
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
+        timeout.CancelAfter(TimeSpan.FromSeconds(90));
+        try
+        {
+            await androidTools.InstallAsync(timeout.Token);
+            return Results.NoContent();
+        }
+        catch (Exception error) when (error is IOException or InvalidDataException or HttpRequestException or
+            UnauthorizedAccessException or OperationCanceledException)
+        {
+            app.Logger.LogWarning(error, "Could not install Android Platform-Tools");
+            return Error("下载失败，请重试，或按使用说明手动放置 Android Platform-Tools。", 502);
+        }
+    });
+
+    app.MapPost("/api/exit", (HttpContext context, IHostApplicationLifetime lifetime) =>
+    {
+        context.Response.OnCompleted(() =>
+        {
+            lifetime.StopApplication();
+            return Task.CompletedTask;
+        });
+        return Results.NoContent();
+    });
+}
 
 app.MapGet("/api/state", (HttpContext context, MusicPlayers player, PanelSettings settings, DisplayPages pages,
     LyricsCatalog catalog, UsbBridge usb, LyricAppearanceSettings appearance) =>
@@ -124,11 +170,12 @@ app.MapGet("/api/state", (HttpContext context, MusicPlayers player, PanelSetting
         },
         availablePresets,
         usb = usb.Status,
+        standalone = packaged,
         state.Status,
         state.CanToggle,
         state.CanPrevious,
         state.CanNext,
-        defaultLyricOffsetMs = LyricsCatalog.DefaultLeadMs(musicSource),
+        defaultLyricOffsetMs = LyricsCatalog.DefaultLeadMs,
         lyricsStatus = staticLyrics ? "static-lyrics" : labels.Status
     } : null;
     return Results.Ok(new
@@ -368,12 +415,43 @@ app.MapPost("/api/lyrics", async (HttpRequest request, MusicPlayers player, Lyri
         : Error("文件中没有可读的时间戳歌词。");
 });
 
-await app.StartAsync();
+try
+{
+    await app.StartAsync();
+}
+catch (IOException) when (packaged)
+{
+    if (!await OpenExistingControlAsync())
+        System.Windows.Forms.MessageBox.Show("无法启动。请检查本机端口 8765 和 8766 是否被其他程序占用。", "桌面副屏");
+    return;
+}
 Console.WriteLine($"Windows 控制面板  {controlUrl}/");
 Console.WriteLine($"Android USB 页面  http://127.0.0.1:{displayPort}/");
-if (args.Contains("--open-control"))
-    Process.Start(new ProcessStartInfo(controlUrl + "/") { UseShellExecute = true });
+if (openControl) OpenControl();
 await app.WaitForShutdownAsync();
+
+static void OpenControl() => Process.Start(new ProcessStartInfo(controlUrl + "/") { UseShellExecute = true });
+
+static async Task<bool> OpenExistingControlAsync()
+{
+    using var probe = new HttpClient(new HttpClientHandler { UseProxy = false, AllowAutoRedirect = false })
+    {
+        Timeout = TimeSpan.FromSeconds(1)
+    };
+    try
+    {
+        using var response = await probe.GetAsync(controlUrl + "/");
+        if (!response.IsSuccessStatusCode) return false;
+        var page = await response.Content.ReadAsStringAsync();
+        if (!page.Contains("/control/control.js", StringComparison.Ordinal)) return false;
+        OpenControl();
+        return true;
+    }
+    catch (Exception error) when (error is HttpRequestException or OperationCanceledException)
+    {
+        return false;
+    }
+}
 
 static IResult ImageResult(ImageBytes? image, string? version) => image != null && version == image.Version
     ? Results.File(image.Bytes, image.Type) : Results.NotFound();

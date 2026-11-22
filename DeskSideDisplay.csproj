@@ -9,4 +9,21 @@
     <PackageReference Include="YamlDotNet" Version="18.1.0" />
     <Content Update="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <PropertyGroup Condition="'$(DeskSideSingleFile)' == 'true'">
+    <DefineConstants>$(DefineConstants);DESKSIDE_SINGLE_FILE</DefineConstants>
+    <OutputType>WinExe</OutputType>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
+    <IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(DeskSideSingleFile)' == 'true'">
+    <Content Remove="wwwroot\**\*" />
+    <EmbeddedResource Include="wwwroot\**\*" LogicalName="web/%(RecursiveDir)%(Filename)%(Extension)" />
+    <EmbeddedResource Include="LICENSE" LogicalName="web/licenses/DeskSideDisplay.txt" />
+    <EmbeddedResource Include="licenses\YamlDotNet.txt" LogicalName="web/licenses/YamlDotNet.txt" />
+    <EmbeddedResource Include="$(DeskSideRuntimeNotices)" LogicalName="web/licenses/dotnet.txt" />
+  </ItemGroup>
 </Project>

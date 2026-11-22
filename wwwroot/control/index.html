@@ -40,6 +40,18 @@
         <a href="#music">音乐播放</a>
       </nav>
       <p class="connection-address">手机浏览器地址 <code>http://127.0.0.1:8765/</code></p>
+      <div class="usb-setup" id="usb-setup" hidden>
+        <div id="adb-setup" hidden>
+          <p>首次连接需要下载 Android USB 工具。</p>
+          <a href="https://developer.android.com/studio/terms" target="_blank" rel="noopener noreferrer">Android SDK 许可协议</a>
+          <button id="install-adb" type="button">同意协议并下载</button>
+        </div>
+        <p id="usb-setup-message" role="status" hidden></p>
+        <a href="/licenses/DeskSideDisplay.txt" target="_blank" rel="noopener">项目许可</a>
+        <a href="/licenses/dotnet.txt" target="_blank" rel="noopener">运行时许可</a>
+        <a href="/licenses/YamlDotNet.txt" target="_blank" rel="noopener">YamlDotNet 许可</a>
+        <button id="exit-display" type="button">退出副屏</button>
+      </div>
     </aside>
     <section id="display" aria-labelledby="display-heading">
       <h2 id="display-heading">手机显示</h2>

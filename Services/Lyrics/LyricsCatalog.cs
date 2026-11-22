@@ -27,7 +27,7 @@ sealed record AmllSong(long Id, string[] MusicNames, string[] ArtistNames, strin
 
 sealed partial class LyricsCatalog
 {
-    public static int DefaultLeadMs(string? musicSource) => musicSource == MusicPlayers.Netease ? 0 : 1300;
+    public const int DefaultLeadMs = 0;
     private static readonly HttpClient http = new() { Timeout = TimeSpan.FromSeconds(8) };
     private readonly string directory;
     private readonly string offsetsFile;
@@ -73,7 +73,7 @@ sealed partial class LyricsCatalog
             var key = CalibrationKey(song, source, musicSource);
             var legacy = !source.Lines.Any(line => line.Words is { Length: > 0 });
             var offset = offsets.TryGetValue(key, out var value) ? value
-                : legacy ? offsets.GetValueOrDefault(trackKey, DefaultLeadMs(musicSource)) : DefaultLeadMs(musicSource);
+                : legacy ? offsets.GetValueOrDefault(trackKey, DefaultLeadMs) : DefaultLeadMs;
             var points = timingPoints.GetValueOrDefault(key)
                 ?? (legacy ? timingPoints.GetValueOrDefault(trackKey) : null) ?? [];
             return new(offset, points);
